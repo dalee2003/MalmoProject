@@ -110,7 +110,7 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                   
                   </DrawingDecorator>
                   
-                  <ServerQuitFromTimeUp timeLimitMs="30000"/>
+                  <ServerQuitFromTimeUp timeLimitMs="60000"/>
                   <ServerQuitWhenAnyAgentFinishes/>
                 </ServerHandlers>
               </ServerSection>
@@ -257,7 +257,7 @@ for i_episode in range(num_missions):
                         if entity['name'] == 'Ghast': current_ghast_entity = entity; break
                 current_ghast_health = float(current_ghast_entity['life']) if current_ghast_entity else prev_ghast_health
                 
-                time_limit_ms_const_in_loop = constants.MISSION_TIME_LIMIT_MS if hasattr(constants, 'MISSION_TIME_LIMIT_MS') else 30000
+                time_limit_ms_const_in_loop = constants.MISSION_TIME_LIMIT_MS 
                 calculated_reward = agent.calculate_custom_reward(
                     current_malmo_obs_dict, prev_malmo_obs_dict,
                     prev_agent_health, current_agent_health,

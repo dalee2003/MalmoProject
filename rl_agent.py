@@ -42,12 +42,6 @@ class RLAgent:
                 self.num_actions, self.alpha, self.gamma, self.epsilon))
 
     def _discretize_value(self, value, bins_or_size):
-        if not hasattr(constants, 'AGENT_HEALTH_BINS'): # Check if real constants loaded
-            # Fallback for dummy constants if needed, though ideally real one has all
-            if isinstance(bins_or_size, str) and bins_or_size == "HEALTH_BINS_PLACEHOLDER_AGENT":
-                bins_or_size = [0,5,10,15,20] # default dummy
-            elif isinstance(bins_or_size, str) and bins_or_size == "HEALTH_BINS_PLACEHOLDER_GHAST":
-                bins_or_size = [0,3,6,10] # default dummy
 
 
         if isinstance(bins_or_size, list):
@@ -212,7 +206,7 @@ class RLAgent:
                                 died=False):
         reward = xml_reward
 
-        # Use hasattr for robustness with constants file
+
         _REWARD_GOT_HIT = constants.REWARD_GOT_HIT 
         _REWARD_AGENT_DEATH = constants.REWARD_AGENT_DEATH 
         _REWARD_TIME_PENALTY_STEP = constants.REWARD_TIME_PENALTY_STEP 

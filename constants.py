@@ -4,8 +4,8 @@
 # Action Definitions
 # -----------------------------------------------------------------------------
 DISCRETE_ACTIONS = [
-    "strafe 100",         # Strafe right
-    "strafe -100",        # Strafe left
+    "strafe 1",         # Strafe right
+    "strafe -1",        # Strafe left
     "jump 1",           # Jump (Malmo may need "jump 0" shortly after for a single jump)
 
     "turn 0.02",         # Turn right (adjust sensitivity as needed)
