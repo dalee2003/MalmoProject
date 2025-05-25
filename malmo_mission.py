@@ -36,25 +36,20 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                   
                   <DrawingDecorator>
                     <!-- clearing mission envionrment to start on blank since missions build on top of each other apparently -->
-                    <DrawCuboid x1="0" y1="2" z1="0" x2="20" y2="40" z2="100" type="air"/>
-                  
-                    <!-- right wall -->
-                    <DrawCuboid x1="0" y1="0" z1="0" x2="0" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- left wall -->
-                    <DrawCuboid x1="15" y1="0" z1="0" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- ceiling -->
-                    <DrawCuboid x1="0" y1="20" z1="0" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- floor -->
-                    <DrawCuboid x1="0" y1="1" z1="0" x2="15" y2="1" z2="60" type="stone"/>
-                    
-                    <!-- far wall -->
+                    <DrawCuboid x1="0" y1="2" z1="-15" x2="20" y2="40" z2="100" type="air"/>
+              
+                    <DrawCuboid x1="0" y1="0" z1="-10" x2="0" y2="20" z2="60" type="stone"/>
+                
+                    <DrawCuboid x1="15" y1="0" z1="-10" x2="15" y2="20" z2="60" type="stone"/>
+                
+                    <DrawCuboid x1="0" y1="20" z1="-10" x2="15" y2="20" z2="60" type="stone"/>
+                
+                    <DrawCuboid x1="0" y1="1" z1="-10" x2="15" y2="1" z2="60" type="stone"/>
+                
                     <DrawCuboid x1="0" y1="0" z1="60" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- close wall -->
-                    <DrawCuboid x1="0" y1="0" z1="0" x2="15" y2="20" z2="0" type="stone"/>
+                
+                    <DrawCuboid x1="0" y1="0" z1="-10" x2="15" y2="20" z2="-10" type="stone"/>
+
                     
                     <!-- glowstones at z = 0 (close wall) -->
                     <DrawBlock x="4" y="9" z="0" type="glowstone"/>
