@@ -4,9 +4,9 @@ from builtins import range
 from malmo import MalmoPython
 import os
 import sys
-import time
+import time # For manual time tracking
 import json
-import csv # Added for CSV output
+import csv
 
 # Attempt to import the RL agent and constants
 try:
@@ -26,7 +26,7 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
             <Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             
               <About>
-                <Summary>Hello world!</Summary>
+                <Summary>Ghast Battle Mission</Summary>
               </About>
               
               <ServerSection>
@@ -35,73 +35,54 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                   
                   <DrawingDecorator>
                     <DrawCuboid x1="0" y1="2" z1="-15" x2="20" y2="40" z2="100" type="air"/>
-                  
                     <DrawCuboid x1="0" y1="0" z1="-10" x2="0" y2="20" z2="60" type="stone"/>
-                    
                     <DrawCuboid x1="15" y1="0" z1="-10" x2="15" y2="20" z2="60" type="stone"/>
-                    
                     <DrawCuboid x1="0" y1="20" z1="-10" x2="15" y2="20" z2="60" type="stone"/>
-                    
                     <DrawCuboid x1="0" y1="1" z1="-10" x2="15" y2="1" z2="60" type="stone"/>
-                    
                     <DrawCuboid x1="0" y1="0" z1="60" x2="15" y2="20" z2="60" type="stone"/>
-                    
                     <DrawCuboid x1="0" y1="0" z1="-10" x2="15" y2="20" z2="-10" type="stone"/>
-                    
                     <DrawBlock x="4" y="9" z="0" type="glowstone"/>
                     <DrawBlock x="8" y="9" z="0" type="glowstone"/>
                     <DrawBlock x="12" y="9" z="0" type="glowstone"/>
-                    
                     <DrawBlock x="0" y="9" z="10" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="10" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="10" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="10" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="10" type="glowstone"/>
-                    
                     <DrawBlock x="0" y="9" z="20" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="20" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="20" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="20" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="20" type="glowstone"/>
-                    
                     <DrawBlock x="0" y="9" z="30" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="30" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="30" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="30" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="30" type="glowstone"/>
-                    
                     <DrawBlock x="0" y="9" z="40" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="40" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="40" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="40" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="40" type="glowstone"/>
-                    
                     <DrawBlock x="0" y="9" z="50" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="50" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="50" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="50" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="50" type="glowstone"/>
-                    
                     <DrawBlock x="4" y="9" z="60" type="glowstone"/>
                     <DrawBlock x="8" y="9" z="60" type="glowstone"/>
                     <DrawBlock x="12" y="9" z="60" type="glowstone"/>
-
                     <DrawBlock x="4" y="9" z="-10" type="glowstone"/>
                     <DrawBlock x="8" y="9" z="-10" type="glowstone"/>
                     <DrawBlock x="12" y="9" z="-10" type="glowstone"/>
-                    
                     <DrawEntity x="6.5" y="4" z="58" type="Ghast"/>
-                    
                     <DrawCuboid x1="0" y1="0" z1="50" x2="15" y2="4" z2="50" type="glass"/>
                     <DrawCuboid x1="0" y1="8" z1="50" x2="14" y2="19" z2="59" type="glass"/>
-                  
                   </DrawingDecorator>
-                  
                   <ServerQuitFromTimeUp timeLimitMs="60000"/>
                   <ServerQuitWhenAnyAgentFinishes/>
                 </ServerHandlers>
               </ServerSection>
-              
               <AgentSection mode="Survival">
                 <Name>MalmoTutorialBot</Name>
                 <AgentStart>
@@ -114,23 +95,18 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
               </AgentSection>
             </Mission>'''
 
-# --- CSV Setup ---
 CSV_FILENAME = "ghast_battle_results.csv"
 
 def initialize_csv(filename):
-    """Creates the CSV file and writes the header if the file doesn't exist or is empty."""
     file_exists = os.path.isfile(filename)
     try:
-        # Check if file is empty
         is_empty = os.path.getsize(filename) == 0 if file_exists else True
-    except OSError: # Handle case where file might exist but not be accessible briefly
+    except OSError:
         is_empty = True
-
     with open(filename, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         if not file_exists or is_empty:
-            writer.writerow(['Episode', 'TimeSurvived_seconds', 'FinalAgentHealth', 'FinalAgentHearts', 'GhastKilled'])
-# --- End CSV Setup ---
+            writer.writerow(['Episode', 'TimeSurvived_seconds', 'FinalAgentHearts', 'GhastKilled'])
 
 agent_host = MalmoPython.AgentHost()
 try:
@@ -163,9 +139,9 @@ except AttributeError as e:
     print("Warning: Using RLAgent with default parameters due to missing constant: {}".format(e))
     agent = RLAgent(action_list=ACTION_LIST, num_actions=NUM_ACTIONS)
 
-initialize_csv(CSV_FILENAME) # Initialize CSV before starting missions
+initialize_csv(CSV_FILENAME)
 
-num_missions = 10
+num_missions = 10 
 for i_episode in range(num_missions):
     print("\n--- Starting Episode {} ---".format(i_episode + 1))
     my_mission = MalmoPython.MissionSpec(missionXML, True)
@@ -195,15 +171,16 @@ for i_episode in range(num_missions):
     print("Waiting for the mission to start", end='')
     world_state = agent_host.getWorldState()
     
-    if world_state:
-        pass
-    else:
+    if not world_state:
         print("\nERROR: Initial world_state is None after getWorldState() call!")
         continue
 
-    start_time_wait_loop = time.time()
+    episode_start_system_time_s = 0.0 # To store system time when mission truly starts
+    manual_agent_survival_duration_s = 0.0 # To store manually calculated survival time if agent dies
+
+    start_time_wait_loop = time.time() # For the "waiting for mission to begin" timeout
     max_wait_time_for_begin = 20
-    mission_actually_began = False
+    mission_actually_began = False 
     while not world_state.has_mission_begun:
         print(".", end="")
         sys.stdout.flush()
@@ -220,13 +197,14 @@ for i_episode in range(num_missions):
     
     if world_state and world_state.has_mission_begun:
         mission_actually_began = True
+        episode_start_system_time_s = time.time() # MISSION TRULY STARTED: Log system start time
         print("\nMission running!")
     else:
         error_texts = [e.text for e in world_state.errors] if world_state and world_state.errors else "world_state is None or no errors"
         print("\nMission did not begin. Last known errors: {}".format(error_texts))
         time.sleep(1)
         continue
-
+        
     episode_reward = 0
     prev_malmo_obs_dict = None
     prev_state_tuple = None
@@ -235,10 +213,11 @@ for i_episode in range(num_missions):
     prev_agent_health = initial_agent_health
     prev_ghast_health = float(constants.GHAST_START_HEALTH if hasattr(constants, 'GHAST_START_HEALTH') else 10.0)
     ghast_killed_this_mission = False
-    time_alive_ms = 0
+    
+    time_alive_ms_from_malmo = 0  # Stores the latest 'TimeAlive' from Malmo observations
+    malmo_time_at_death_ms = 0  # Stores Malmo 'TimeAlive' when agent's health reached <=0 (for debug/comparison)
+    agent_died_this_mission = False 
     current_reward_from_xml = 0.0
-    agent_died_this_mission = False
-
 
     while world_state and world_state.is_mission_running:
         current_malmo_obs_dict = None
@@ -253,13 +232,20 @@ for i_episode in range(num_missions):
             current_malmo_obs_dict = json.loads(msg)
 
             if current_malmo_obs_dict is not None and 'TimeAlive' in current_malmo_obs_dict:
-                time_alive_ms = current_malmo_obs_dict['TimeAlive']
+                time_alive_ms_from_malmo = current_malmo_obs_dict['TimeAlive']
             
             current_agent_health_from_obs = float(current_malmo_obs_dict.get('Life', prev_agent_health))
-            if current_agent_health_from_obs <= 0 and prev_agent_health > 0: 
+            
+            if not agent_died_this_mission and current_agent_health_from_obs <= 0 and prev_agent_health > 0:
                 agent_died_this_mission = True
-
-
+                death_system_time_s = time.time() # Record system time at death
+                manual_agent_survival_duration_s = death_system_time_s - episode_start_system_time_s
+                malmo_time_at_death_ms = time_alive_ms_from_malmo # Store Malmo's TimeAlive at this point too
+                
+                print("DEBUG: Death Detected! Manual survival: {:.2f}s, Malmo TimeAlive at death: {}ms, Health: {}, PrevHealth: {}".format(
+                    manual_agent_survival_duration_s, malmo_time_at_death_ms, current_agent_health_from_obs, prev_agent_health
+                ))
+            
             current_state_tuple = agent.get_state_representation(current_malmo_obs_dict, prev_ghast_health)
 
             if prev_state_tuple is not None and prev_action_index is not None and prev_malmo_obs_dict is not None:
@@ -275,7 +261,9 @@ for i_episode in range(num_missions):
                     prev_agent_health, current_agent_health_from_obs, 
                     prev_ghast_health, current_ghast_health,
                     ACTION_LIST[prev_action_index], ghast_killed_this_mission,
-                    current_reward_from_xml, time_alive_ms, time_limit_ms_const_in_loop,
+                    current_reward_from_xml, 
+                    time_alive_ms_from_malmo, 
+                    time_limit_ms_const_in_loop,
                     died=agent_died_this_mission 
                 )
                 episode_reward += calculated_reward
@@ -284,7 +272,6 @@ for i_episode in range(num_missions):
             action_index = agent.choose_action(current_state_tuple)
             action_command = ACTION_LIST[action_index]
             agent_host.sendCommand(action_command)
-
 
             prev_state_tuple = current_state_tuple
             prev_action_index = action_index
@@ -303,66 +290,67 @@ for i_episode in range(num_missions):
                 pass 
         
         world_state = agent_host.getWorldState() 
-
         if not (world_state and world_state.is_mission_running): 
             break
-            
         if world_state.errors: 
             for error in world_state.errors: print("Error (during mission):", error.text)
         time.sleep(0.05)
 
-    final_agent_health = prev_agent_health if not agent_died_this_mission else 0.0
-    if mission_actually_began and prev_agent_health <= 0 and not agent_died_this_mission: 
-        agent_died_this_mission = True
-        final_agent_health = 0.0
-
+    final_health_for_reward_and_log = 0.0 if agent_died_this_mission else prev_agent_health
 
     print("Episode {} finished.".format(i_episode + 1))
     print("Total reward for episode: {:.2f}".format(episode_reward))
-    print("Time survived: {:.2f} ms".format(time_alive_ms))
-    print("Final agent health: {:.1f}".format(final_agent_health))
+
+    # Determine time for terminal reward and logging
+    time_survived_seconds_for_csv = 0.0
+    time_for_terminal_reward_ms = 0.0
+
+    if agent_died_this_mission:
+        time_survived_seconds_for_csv = manual_agent_survival_duration_s
+        time_for_terminal_reward_ms = manual_agent_survival_duration_s * 1000.0 # Convert manual seconds to ms
+        print("Time until death (manual): {:.2f} seconds".format(manual_agent_survival_duration_s))
+        print("Malmo's TimeAlive at death: {} ms".format(malmo_time_at_death_ms))
+    else:
+        time_survived_seconds_for_csv = time_alive_ms_from_malmo / 1000.0
+        time_for_terminal_reward_ms = time_alive_ms_from_malmo # Use Malmo's total time if survived
+        print("Total time active (Malmo): {:.2f} seconds".format(time_survived_seconds_for_csv))
+        
+    print("Final agent health (points): {:.1f}".format(final_health_for_reward_and_log))
     print("Ghast killed: {}".format(ghast_killed_this_mission))
     print("Agent died: {}".format(agent_died_this_mission))
 
-
-    if mission_actually_began and prev_state_tuple is not None and prev_action_index is not None and prev_malmo_obs_dict is not None:
+    if prev_state_tuple is not None and prev_action_index is not None :
         time_limit_ms_const = constants.MISSION_TIME_LIMIT_MS
-        final_time_for_reward = time_alive_ms
-
         final_calculated_reward = agent.calculate_custom_reward(
-            prev_malmo_obs_dict, prev_malmo_obs_dict, 
-            final_agent_health, final_agent_health, 
+            prev_malmo_obs_dict if prev_malmo_obs_dict else {}, 
+            prev_malmo_obs_dict if prev_malmo_obs_dict else {}, 
+            prev_agent_health, 
+            final_health_for_reward_and_log, 
             prev_ghast_health, 0 if ghast_killed_this_mission else prev_ghast_health,
             ACTION_LIST[prev_action_index],
             ghast_killed_this_mission,
             current_reward_from_xml, 
-            final_time_for_reward,
+            time_for_terminal_reward_ms, # Use the determined time in ms
             time_limit_ms_const,
             died=agent_died_this_mission 
         )
         agent.update(prev_state_tuple, prev_action_index, final_calculated_reward, None, True)
-    elif not mission_actually_began:
-        print("Skipping terminal reward calculation as mission did not properly begin or run.")
     else:
-        print("Skipping terminal reward: No previous state/action to learn from for update.")
-
-    time_survived_seconds = time_alive_ms / 1000.0
-    final_agent_hearts = final_agent_health / 2.0
+        print("Skipping terminal Q-update: No previous state/action to learn from.")
+    
+    final_agent_hearts_for_csv = final_health_for_reward_and_log / 2.0
 
     with open(CSV_FILENAME, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow([
             i_episode + 1,
-            time_survived_seconds,
-            final_agent_health,
-            final_agent_hearts,
+            time_survived_seconds_for_csv,
+            final_agent_hearts_for_csv, 
             ghast_killed_this_mission
         ])
-    # Replaced f-string with .format() for Python 3.5 compatibility
     print("Results for episode {} saved to {}".format(i_episode + 1, CSV_FILENAME))
 
-
-    if (i_episode + 1) % 10 == 0: 
+    if (i_episode + 1) % 5 == 0: 
         try:
             save_filename_base = constants.Q_TABLE_SAVE_FILENAME_BASE if hasattr(constants, 'Q_TABLE_SAVE_FILENAME_BASE') else "q_table_ghast_battle"
             save_filename = "{}_episode_{}.json".format(save_filename_base, i_episode + 1)
