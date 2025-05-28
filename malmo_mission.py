@@ -1,20 +1,30 @@
 from __future__ import print_function
 
 from builtins import range
-import MalmoPython
-import os
-import sys
-import time
+import os, sys, time, json
+from rl_agent import RLAgent         # just for get_state_representation & calculate_custom_reward
+from dqn_agent import DQNAgent       # your new neural‐network‐based agent
+import constants
+import numpy as np
+from malmo import MalmoPython
+
+# Attempt to import the RL agent and constants
+try:
+    from rl_agent import RLAgent
+    import constants
+except ImportError as e:
+    print("ERROR: Could not import RLAgent or constants. {}".format(e))
+
 
 if sys.version_info[0] == 2:
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)  # flush print output immediately
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 else:
     import functools
     print = functools.partial(print, flush=True)
 
 # More interesting generator string: "3;7,44*49,73,35:1,159:4,95:13,35:13,159:11,95:10,159:14,159:6,35:6,95:6;12;"
 
-missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
             <Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             
               <About>
@@ -101,7 +111,7 @@ missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                   
                   </DrawingDecorator>
                   
-                  <ServerQuitFromTimeUp timeLimitMs="30000"/>
+                  <ServerQuitFromTimeUp timeLimitMs="60000"/>
                   <ServerQuitWhenAnyAgentFinishes/>
                 </ServerHandlers>
               </ServerSection>
@@ -118,83 +128,143 @@ missionXML='''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
               </AgentSection>
             </Mission>'''
 
-
-
-# Create default Malmo objects:
-
 agent_host = MalmoPython.AgentHost()
 try:
-    agent_host.parse( sys.argv )
+    agent_host.parse(sys.argv)
 except RuntimeError as e:
-    print('ERROR:',e)
+    print('ERROR:', e)
     print(agent_host.getUsage())
     exit(1)
 if agent_host.receivedArgument("help"):
     print(agent_host.getUsage())
     exit(0)
 
-my_mission = MalmoPython.MissionSpec(missionXML, True)
-my_mission_record = MalmoPython.MissionRecordSpec()
+ACTION_LIST = constants.DISCRETE_ACTIONS
+NUM_ACTIONS = len(ACTION_LIST)
 
-# Attempt to start a mission:
-max_retries = 3
-for retry in range(max_retries):
-    try:
-        agent_host.startMission( my_mission, my_mission_record )
-        break
-    except RuntimeError as e:
-        if retry == max_retries - 1:
-            print("Error starting mission:",e)
-            exit(1)
-        else:
-            time.sleep(2)
+# 1. Build a tiny RLAgent just to extract state‐size and reward logic:
+state_extractor = RLAgent(action_list=ACTION_LIST,
+                          num_actions=NUM_ACTIONS,
+                          debug=False)
 
-# Loop until mission starts:
-print("Waiting for the mission to start ", end=' ')
-world_state = agent_host.getWorldState()
-while not world_state.has_mission_begun:
-    print(".", end="")
-    time.sleep(0.1)
+dummy_state = state_extractor.get_state_representation(None,
+                                                      constants.GHAST_START_HEALTH)
+state_size = len(dummy_state)
+
+# 2. Instantiate your DQNAgent
+dqn_agent = DQNAgent(state_size=state_size,
+                     action_list=ACTION_LIST,
+                     learning_rate=constants.DQN_LEARNING_RATE,
+                     gamma=constants.DISCOUNT_FACTOR,
+                     epsilon_start=constants.EPSILON_START,
+                     epsilon_end=constants.EPSILON_END,
+                     epsilon_decay_steps=constants.EPSILON_DECAY_STEPS,
+                     debug=constants.DEBUG_AGENT)
+
+# 3. Loop over episodes
+num_missions = 50
+for episode in range(1, num_missions+1):
+    print("\n--- Episode %d ---" % episode)
+    mission = MalmoPython.MissionSpec(missionXML, True)
+    record = MalmoPython.MissionRecordSpec()
+    agent_host.startMission(mission, record)
+
+    # wait for mission to really begin …
     world_state = agent_host.getWorldState()
-    for error in world_state.errors:
-        print("Error:",error.text)
+    while not world_state.has_mission_begun:
+        time.sleep(0.1)
+        world_state = agent_host.getWorldState()
 
-print()
-print("Mission running ", end=' ')
+    # initialize tracking variables
+    prev_state = None
+    prev_action = None
+    prev_obs = None
+    prev_agent_health = constants.AGENT_START_HEALTH
+    prev_ghast_health = constants.GHAST_START_HEALTH
+    episode_reward = 0.0
 
-#### Moving the agent in circle so i can see what the environment looks like ####
-# Turn left 90 degrees to face down the alley
-# agent_host.sendCommand("turn -1")
-# time.sleep(0.5)  # 180 deg/s for 0.5s = ~90 degrees
-# agent_host.sendCommand("turn 0")
+    # 4. Main step loop
+    while world_state.is_mission_running:
+        # pull in new observation
+        if world_state.number_of_observations_since_last_state > 0:
+            obs_text = world_state.observations[-1].text
+            obs = json.loads(obs_text)
 
-# Start alternating left/right movement
-strafe_direction = -1  # Start by strafing left
-strafe_duration = 2  # seconds per strafe direction
-last_switch_time = time.time()
+            # build your DQN state
+            curr_state = state_extractor.get_state_representation(obs,
+                                                                  prev_ghast_health)
 
-# Loop until mission ends:
-while world_state.is_mission_running:
-    current_time = time.time()
+            # if we have a previous step, learn from it
+            if prev_state is not None:
+                # compute your custom reward
+                curr_agent_health = float(obs.get('Life', prev_agent_health))
+                gh = next((e for e in obs.get('entities', [])
+                           if e['name']=='Ghast'), None)
+                curr_ghast_health = float(gh.get('life', prev_ghast_health)
+                                         ) if gh else prev_ghast_health
 
-    # If time to switch strafe direction:
-    if current_time - last_switch_time > strafe_duration:
-        strafe_direction *= -1  # flip direction
-        agent_host.sendCommand("strafe " + str(strafe_direction))
-        last_switch_time = current_time
+                reward = state_extractor.calculate_custom_reward(
+                    obs, prev_obs,
+                    prev_agent_health, curr_agent_health,
+                    prev_ghast_health, curr_ghast_health,
+                    ACTION_LIST[prev_action],
+                    ghast_killed_flag=False,
+                    xml_reward=sum(r.getValue() for r in world_state.rewards),
+                    time_since_mission_start_ms=obs.get('TimeAlive',0),
+                    mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
+                    died=(curr_agent_health<=0)
+                )
+                episode_reward += reward
 
-    # Keep updating world state
-    world_state = agent_host.getWorldState()
-    time.sleep(0.05)  # smoother loop
+                # store in replay buffer and train
+                dqn_agent.remember(prev_state, prev_action,
+                                   reward, curr_state, False)
+                dqn_agent.replay()
 
-    for error in world_state.errors:
-        print("Error:", error.text)
-#### End moving agent around ####
+            # choose and send next action
+            action_idx = dqn_agent.act(np.array(curr_state))
+            if world_state.is_mission_running:
+                agent_host.sendCommand(ACTION_LIST[action_idx])
 
-# Stop movement after mission ends
-agent_host.sendCommand("strafe 0")
+            # shift “prev” variables
+            prev_state = curr_state
+            prev_action = action_idx
+            prev_obs = obs
+            prev_agent_health = float(obs.get('Life', prev_agent_health))
+            prev_ghast_health = (next((e for e in obs.get('entities', [])
+                                      if e['name']=='Ghast'), None)
+                                or {'life': prev_ghast_health})['life']
 
+        # advance world_state
+        world_state = agent_host.getWorldState()
+        if world_state.errors:
+            for e in world_state.errors: print("Error:", e.text)
+        time.sleep(0.05)
 
-print()
-print("Mission ended")
-# Mission has ended.w
+    # 5. Terminal transition (final reward & learning)
+    if prev_state is not None:
+        final_reward = state_extractor.calculate_custom_reward(
+            prev_obs, prev_obs,
+            prev_agent_health, prev_agent_health,
+            prev_ghast_health, 0.0,
+            ACTION_LIST[prev_action],
+            ghast_killed_flag=False,
+            xml_reward=0.0,
+            time_since_mission_start_ms=constants.MISSION_TIME_LIMIT_MS,
+            mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
+            died=(prev_agent_health<=0)
+        )
+        episode_reward += final_reward
+        dqn_agent.remember(prev_state, prev_action,
+                           final_reward, None, True)
+        dqn_agent.replay()
+
+    print("Episode %d complete, total reward = %.2f" %
+          (episode, episode_reward))
+
+    # optionally save your weights every N episodes
+    if episode % 5 == 0:
+        dqn_agent.model.save_weights("dqn_weights_ep%d.h5" % episode)
+        print("Saved DQN weights after episode", episode)
+
+print("All training finished.")
