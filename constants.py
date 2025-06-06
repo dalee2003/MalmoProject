@@ -52,13 +52,13 @@ REWARD_HIT_GHAST_CUSTOM_BONUS = 500 # If you add rewards for damaging later
 REWARD_KILL_GHAST = 1000
 REWARD_SHOOT_ARROW = 15             # No arrows for now, so 0. Was 2.
 REWARD_MISSION_SUCCESS = 15
-REWARD_GOT_HIT = -10
+REWARD_GOT_HIT = -20
 REWARD_AGENT_DEATH = -30
 REWARD_TIME_PENALTY_STEP = 2
 REWARD_STAY_STILL_PENALTY = -1
 REWARD_FIREBALL_NEAR_PENALTY = -5
 REWARD_WASTED_SHOT = 0
-REWARD_LOOKING_AT_GHAST = 1000
+REWARD_LOOKING_AT_GHAST = 10
 
 # -----------------------------------------------------------------------------
 # Mission Parameters

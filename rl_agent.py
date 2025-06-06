@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import json
+import math
 
 # Attempt to import constants, provide defaults if not found
 try:
@@ -241,14 +242,14 @@ class RLAgent:
              reward += _REWARD_SHOOT_ARROW # This reward is 0 if no bow, as per constants
                 
         reward_looking_at_ghast = 0.0
-        if current_obs_dict and 'entities' in current_obs_dict and 'XPos' in current_obs_dict and 'YPos' in current_obs_dict and 'ZPos' in obs:
+        if current_obs_dict and 'entities' in current_obs_dict and 'XPos' in current_obs_dict and 'YPos' in current_obs_dict and 'ZPos' in current_obs_dict:
             agent_x = current_obs_dict['XPos']
             agent_y = current_obs_dict['YPos']
             agent_z = current_obs_dict['ZPos']
             agent_yaw = current_obs_dict.get('Yaw', 0)
             agent_pitch = current_obs_dict.get('Pitch', 0)
 
-            ghast_entity = next((e for e in obs['entities'] if e['name'] == 'Ghast'), None)
+            ghast_entity = next((e for e in current_obs_dict['entities'] if e['name'] == 'Ghast'), None)
 
             if ghast_entity:
                 ghast_x = ghast_entity['x']
