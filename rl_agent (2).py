@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import json
+import math
 
 # Attempt to import constants, provide defaults if not found
 try:
@@ -235,20 +236,16 @@ class RLAgent:
             reward += _REWARD_MISSION_SUCCESS
             if self.debug: print("REWARD: Killed Ghast! ({})".format(_REWARD_KILL_GHAST + _REWARD_MISSION_SUCCESS))
         
-        # Check if shooting (even if no bow, agent might try "attack")
-        action_shoot_cmd = "EXECUTE_FULL_SHOT"
-        if action_command_taken == action_shoot_cmd:
-             reward += _REWARD_SHOOT_ARROW # This reward is 0 if no bow, as per constants
                 
         reward_looking_at_ghast = 0.0
-        if current_obs_dict and 'entities' in current_obs_dict and 'XPos' in current_obs_dict and 'YPos' in current_obs_dict and 'ZPos' in obs:
+        if current_obs_dict and 'entities' in current_obs_dict and 'XPos' in current_obs_dict and 'YPos' in current_obs_dict and 'ZPos' in current_obs_dict:
             agent_x = current_obs_dict['XPos']
             agent_y = current_obs_dict['YPos']
             agent_z = current_obs_dict['ZPos']
             agent_yaw = current_obs_dict.get('Yaw', 0)
             agent_pitch = current_obs_dict.get('Pitch', 0)
 
-            ghast_entity = next((e for e in obs['entities'] if e['name'] == 'Ghast'), None)
+            ghast_entity = next((e for e in current_obs_dict['entities'] if e['name'] == 'Ghast'), None)
 
             if ghast_entity:
                 ghast_x = ghast_entity['x']
@@ -259,10 +256,12 @@ class RLAgent:
                 vec_x = ghast_x - agent_x
                 vec_y = ghast_y - agent_y
                 vec_z = ghast_z - agent_z
+                
+                PITCH_OFFSET = 5.0  # or adjust this value to control how much "above" they aim
 
                 # Calculate the yaw and pitch needed to look directly at the ghast
                 target_yaw = -math.atan2(vec_x, vec_z) * 180 / math.pi
-                target_pitch = -math.atan2(vec_y, math.sqrt(vec_x**2 + vec_z**2)) * 180 / math.pi
+                target_pitch = -math.atan2(vec_y + PITCH_OFFSET, math.sqrt(vec_x**2 + vec_z**2)) * 180 / math.pi
 
                 # Normalize yaw to be within -180 to 180 range
                 agent_yaw_norm = (agent_yaw + 180) % 360 - 180
@@ -271,16 +270,22 @@ class RLAgent:
                 # Check if the agent's current yaw and pitch are close to the target
                 # You'll need to define a tolerance. A small tolerance means the agent
                 # has to be looking very precisely at the ghast.
-                YAW_TOLERANCE = 20  # degrees
-                PITCH_TOLERANCE = 20 # degrees
+                YAW_TOLERANCE = 12  # degrees
+                PITCH_TOLERANCE = 5 # degrees
 
                 if (abs(agent_yaw_norm - target_yaw_norm) < YAW_TOLERANCE and
                     abs(agent_pitch - target_pitch) < PITCH_TOLERANCE):
                     reward_looking_at_ghast = constants.REWARD_LOOKING_AT_GHAST
-                    if self.debug:
-                        print("looking at ghast")
+                    print("looking at ghast")
             
         reward += reward_looking_at_ghast
+        
+         # Check if shooting (even if no bow, agent might try "attack")
+        action_shoot_cmd = "EXECUTE_FULL_SHOT"
+        if action_command_taken == action_shoot_cmd:
+            if reward_looking_at_ghast > 0:
+                reward += _REWARD_SHOOT_ARROW
+            else: reward -= _REWARD_SHOOT_ARROW
 
 
         if self.debug and self.training_step_count % 50 == 0:

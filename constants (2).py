@@ -13,7 +13,7 @@ DISCRETE_ACTIONS = [
     "pitch 0.05",        # Pitch down (look down)
     "pitch -0.05",       # Pitch up (look up)
 
-    "attack 1",         # Start attacking (will be generic punch without bow)
+    #"attack 1",         # Start attacking (will be generic punch without bow)
     "move 0",            # No operation / Stop current movement (explicit idle)
     
     "EXECUTE_FULL_SHOT"
@@ -48,17 +48,17 @@ GHAST_START_HEALTH = 10.0
 # -----------------------------------------------------------------------------
 # Reward Values
 # -----------------------------------------------------------------------------
-REWARD_HIT_GHAST_CUSTOM_BONUS = 500 # If you add rewards for damaging later
-REWARD_KILL_GHAST = 1000
-REWARD_SHOOT_ARROW = 15             # No arrows for now, so 0. Was 2.
+REWARD_HIT_GHAST_CUSTOM_BONUS = 50000 # If you add rewards for damaging later
+REWARD_KILL_GHAST = 1
+REWARD_SHOOT_ARROW = 5             # No arrows for now, so 0. Was 2.
 REWARD_MISSION_SUCCESS = 15
-REWARD_GOT_HIT = -10
+REWARD_GOT_HIT = -100
 REWARD_AGENT_DEATH = -30
 REWARD_TIME_PENALTY_STEP = 2
 REWARD_STAY_STILL_PENALTY = -1
 REWARD_FIREBALL_NEAR_PENALTY = -5
 REWARD_WASTED_SHOT = 0
-REWARD_LOOKING_AT_GHAST = 1000
+REWARD_LOOKING_AT_GHAST = 20
 
 # -----------------------------------------------------------------------------
 # Mission Parameters

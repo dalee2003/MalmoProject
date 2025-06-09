@@ -141,6 +141,9 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                 </AgentStart>
                 <AgentHandlers>
                   <ObservationFromFullStats/>
+                  <ObservationFromNearbyEntities>
+                    <Range name="entities" xrange="20" yrange="20" zrange="60"/>
+                  </ObservationFromNearbyEntities>
                   <ContinuousMovementCommands turnSpeedDegs="180"/>
                 </AgentHandlers>
               </AgentSection>
@@ -185,7 +188,17 @@ for episode in range(1, num_missions+1):
     print("\n--- Episode %d ---" % episode)
     mission = MalmoPython.MissionSpec(missionXML, True)
     record = MalmoPython.MissionRecordSpec()
-    agent_host.startMission(mission, record)
+    # agent_host.startMission(mission, record)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            agent_host.startMission(mission, record)
+            break
+        except MalmoPython.MissionException as e:
+            print("Start mission failed:", e)
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(5)
 
     # wait for mission to really begin …
     world_state = agent_host.getWorldState()
