@@ -1,316 +1,359 @@
-from __future__ import print_function
-
-from builtins import range
-import os, sys, time, json
-from rl_agent import RLAgent         # just for get_state_representation & calculate_custom_reward
-from dqn_agent import DQNAgent       # your new neural‐network‐based agent
-import constants
 import numpy as np
-from malmo import MalmoPython
+import random
+from collections import deque
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+import time
+import json
+import math
+import matplotlib.pyplot as plt
+import malmo.MalmoPython as Malmo
 
-# Attempt to import the RL agent and constants
-try:
-    from rl_agent import RLAgent
-    import constants
-except ImportError as e:
-    print("ERROR: Could not import RLAgent or constants. {}".format(e))
-
-
-if sys.version_info[0] == 2:
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
-else:
-    import functools
-    print = functools.partial(print, flush=True)
-
-# More interesting generator string: "3;7,44*49,73,35:1,159:4,95:13,35:13,159:11,95:10,159:14,159:6,35:6,95:6;12;"
-
+# Your mission XML (unchanged)
 missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-            <Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-            
-              <About>
-                <Summary>Hello world!</Summary>
-              </About>
-              
-              <ServerSection>
-                <ServerHandlers>
-                  <FlatWorldGenerator generatorString="3;7,2;1;"/>
-                  
-                  <DrawingDecorator>
-                    <!-- clearing mission envionrment to start on blank since missions build on top of each other apparently -->
-                    <DrawCuboid x1="0" y1="2" z1="0" x2="20" y2="40" z2="100" type="air"/>
-                  
-                    <!-- right wall -->
-                    <DrawCuboid x1="0" y1="0" z1="0" x2="0" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- left wall -->
-                    <DrawCuboid x1="15" y1="0" z1="0" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- ceiling -->
-                    <DrawCuboid x1="0" y1="20" z1="0" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- floor -->
-                    <DrawCuboid x1="0" y1="1" z1="0" x2="15" y2="1" z2="60" type="stone"/>
-                    
-                    <!-- far wall -->
-                    <DrawCuboid x1="0" y1="0" z1="60" x2="15" y2="20" z2="60" type="stone"/>
-                    
-                    <!-- close wall -->
-                    <DrawCuboid x1="0" y1="0" z1="0" x2="15" y2="20" z2="0" type="stone"/>
-                    
-                    <!-- glowstones at z = 0 (close wall) -->
-                    <DrawBlock x="4" y="9" z="0" type="glowstone"/>
-                    <DrawBlock x="8" y="9" z="0" type="glowstone"/>
-                    <DrawBlock x="12" y="9" z="0" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 10 -->
-                    <DrawBlock x="0" y="9" z="10" type="glowstone"/>
-                    <DrawBlock x="15" y="9" z="10" type="glowstone"/>
-                    <DrawBlock x="4" y="20" z="10" type="glowstone"/>
-                    <DrawBlock x="8" y="20" z="10" type="glowstone"/>
-                    <DrawBlock x="12" y="20" z="10" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 20 -->
-                    <DrawBlock x="0" y="9" z="20" type="glowstone"/>
-                    <DrawBlock x="15" y="9" z="20" type="glowstone"/>
-                    <DrawBlock x="4" y="20" z="20" type="glowstone"/>
-                    <DrawBlock x="8" y="20" z="20" type="glowstone"/>
-                    <DrawBlock x="12" y="20" z="20" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 30 -->
-                    <DrawBlock x="0" y="9" z="30" type="glowstone"/>
-                    <DrawBlock x="15" y="9" z="30" type="glowstone"/>
-                    <DrawBlock x="4" y="20" z="30" type="glowstone"/>
-                    <DrawBlock x="8" y="20" z="30" type="glowstone"/>
-                    <DrawBlock x="12" y="20" z="30" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 40 -->
-                    <DrawBlock x="0" y="9" z="40" type="glowstone"/>
-                    <DrawBlock x="15" y="9" z="40" type="glowstone"/>
-                    <DrawBlock x="4" y="20" z="40" type="glowstone"/>
-                    <DrawBlock x="8" y="20" z="40" type="glowstone"/>
-                    <DrawBlock x="12" y="20" z="40" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 50 -->
-                    <DrawBlock x="0" y="9" z="50" type="glowstone"/>
-                    <DrawBlock x="15" y="9" z="50" type="glowstone"/>
-                    <DrawBlock x="4" y="20" z="50" type="glowstone"/>
-                    <DrawBlock x="8" y="20" z="50" type="glowstone"/>
-                    <DrawBlock x="12" y="20" z="50" type="glowstone"/>
-                    
-                    <!-- glowstones at z = 60 (far wall) -->
-                    <DrawBlock x="4" y="9" z="60" type="glowstone"/>
-                    <DrawBlock x="8" y="9" z="60" type="glowstone"/>
-                    <DrawBlock x="12" y="9" z="60" type="glowstone"/>
-                    
-                    <!-- ghast spawns at x="6.5" y="6" z="58" -->
-                    <DrawEntity x="6.5" y="4" z="58" type="Ghast"/>
-                    
-                    <!-- glass barricade (to prevent Ghast from moving towards agent) -->
-                    <DrawCuboid x1="0" y1="0" z1="50" x2="15" y2="4" z2="50" type="glass"/>
-                    <DrawCuboid x1="0" y1="8" z1="50" x2="14" y2="19" z2="59" type="glass"/>
-                    
+<Mission xmlns="http://ProjectMalmo.microsoft.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <About>
+    <Summary>Hello world!</Summary>
+  </About>
+  <ServerSection>
+    <ServerHandlers>
+      <FlatWorldGenerator generatorString="3;7,2;1;"/>
+      <DrawingDecorator>
+        <DrawCuboid x1="0" y1="2" z1="0" x2="20" y2="40" z2="100" type="air"/>
+        <DrawCuboid x1="0" y1="0" z1="0" x2="0" y2="20" z2="60" type="stone"/>
+        <DrawCuboid x1="15" y1="0" z1="0" x2="15" y2="20" z2="60" type="stone"/>
+        <DrawCuboid x1="0" y1="20" z1="0" x2="15" y2="20" z2="60" type="stone"/>
+        <DrawCuboid x1="0" y1="1" z1="0" x2="15" y2="1" z2="60" type="stone"/>
+        <DrawCuboid x1="0" y1="0" z1="60" x2="15" y2="20" z2="60" type="stone"/>
+        <DrawCuboid x1="0" y1="0" z1="0" x2="15" y2="20" z2="0" type="stone"/>
+        <DrawBlock x="4" y="9" z="0" type="glowstone"/>
+        <DrawBlock x="8" y="9" z="0" type="glowstone"/>
+        <DrawBlock x="12" y="9" z="0" type="glowstone"/>
+        <DrawBlock x="0" y="9" z="10" type="glowstone"/>
+        <DrawBlock x="15" y="9" z="10" type="glowstone"/>
+        <DrawBlock x="4" y="20" z="10" type="glowstone"/>
+        <DrawBlock x="8" y="20" z="10" type="glowstone"/>
+        <DrawBlock x="12" y="20" z="10" type="glowstone"/>
+        <DrawBlock x="0" y="9" z="20" type="glowstone"/>
+        <DrawBlock x="15" y="9" z="20" type="glowstone"/>
+        <DrawBlock x="4" y="20" z="20" type="glowstone"/>
+        <DrawBlock x="8" y="20" z="20" type="glowstone"/>
+        <DrawBlock x="12" y="20" z="20" type="glowstone"/>
+        <DrawBlock x="0" y="9" z="30" type="glowstone"/>
+        <DrawBlock x="15" y="9" z="30" type="glowstone"/>
+        <DrawBlock x="4" y="20" z="30" type="glowstone"/>
+        <DrawBlock x="8" y="20" z="30" type="glowstone"/>
+        <DrawBlock x="12" y="20" z="30" type="glowstone"/>
+        <DrawBlock x="0" y="9" z="40" type="glowstone"/>
+        <DrawBlock x="15" y="9" z="40" type="glowstone"/>
+        <DrawBlock x="4" y="20" z="40" type="glowstone"/>
+        <DrawBlock x="8" y="20" z="40" type="glowstone"/>
+        <DrawBlock x="12" y="20" z="40" type="glowstone"/>
+        <DrawBlock x="0" y="9" z="50" type="glowstone"/>
+        <DrawBlock x="15" y="9" z="50" type="glowstone"/>
+        <DrawBlock x="4" y="20" z="50" type="glowstone"/>
+        <DrawBlock x="8" y="20" z="50" type="glowstone"/>
+        <DrawBlock x="12" y="20" z="50" type="glowstone"/>
+        <DrawBlock x="4" y="9" z="60" type="glowstone"/>
+        <DrawBlock x="8" y="9" z="60" type="glowstone"/>
+        <DrawBlock x="12" y="9" z="60" type="glowstone"/>
+        <DrawEntity x="6.5" y="4" z="58" type="Ghast"/>
+        <DrawCuboid x1="0" y1="0" z1="50" x2="15" y2="4" z2="50" type="glass"/>
+        <DrawCuboid x1="0" y1="8" z1="50" x2="14" y2="19" z2="59" type="glass"/>
+        <DrawCuboid x1="3" y1="1" z1="55" x2="10" y2="1" z2="61" type="glass"/>
+        <DrawCuboid x1="3" y1="8" z1="55" x2="10" y2="8" z2="61" type="glass"/>
+        <DrawCuboid x1="3" y1="2" z1="61" x2="10" y2="7" z2="61" type="glass"/>
+        <DrawCuboid x1="3" y1="2" z1="55" x2="3" y2="7" z2="60" type="glass"/>
+        <DrawCuboid x1="10" y1="2" z1="55" x2="10" y2="7" z2="60" type="glass"/>
+      </DrawingDecorator>
+      <ServerQuitFromTimeUp timeLimitMs="60000"/>
+      <ServerQuitWhenAnyAgentFinishes/>
+    </ServerHandlers>
+  </ServerSection>
+  <AgentSection mode="Survival">
+    <Name>MalmoTutorialBot</Name>
+    <AgentStart>
+      <Placement x="7" y="3" z="6" pitch="0" yaw="0"/>
+      <Inventory>
+        <InventoryItem slot="0" type="bow" quantity="1"/>
+        <InventoryItem slot="1" type="arrow" quantity="64"/>
+      </Inventory>
+    </AgentStart>
+    <AgentHandlers>
+      <ObservationFromFullStats/>
+      <ObservationFromNearbyEntities>
+        <Range name="entities" xrange="20" yrange="20" zrange="60"/>
+      </ObservationFromNearbyEntities>
+      <ContinuousMovementCommands turnSpeedDegs="180"/>
+    </AgentHandlers>
+  </AgentSection>
+</Mission>
+'''
 
-                    <DrawCuboid x1="3" y1="1" z1="55" x2="10" y2="1" z2="61" type="glass"/>
-                    
-                    <!-- Top ceiling of ghast enclosure (Y=8, above ghast's max height) -->
-                    <DrawCuboid x1="3" y1="8" z1="55" x2="10" y2="8" z2="61" type="glass"/>
-                    
-                    <DrawCuboid x1="3" y1="2" z1="61" x2="10" y2="7" z2="61" type="glass"/> 
-                    
-                    <!-- Left wall of ghast enclosure (X=3) - runs from Y=2 to Y=7, and Z=55 to Z=60 -->
-                    <DrawCuboid x1="3" y1="2" z1="55" x2="3" y2="7" z2="60" type="glass"/>
-                    
-                    <!-- Right wall of ghast enclosure (X=10) - runs from Y=2 to Y=7, and Z=55 to Z=60 -->
-                    <DrawCuboid x1="10" y1="2" z1="55" x2="10" y2="7" z2="60" type="glass"/>
-                  
-                  </DrawingDecorator>
-                  
-                  <ServerQuitFromTimeUp timeLimitMs="60000"/>
-                  <ServerQuitWhenAnyAgentFinishes/>
-                </ServerHandlers>
-              </ServerSection>
-              
-              <AgentSection mode="Survival">
-                <Name>MalmoTutorialBot</Name>
-                <AgentStart>
-                  <Placement x="7" y="3" z="6" pitch="0" yaw="0"/>
-                  <Inventory>
-                    <InventoryItem slot="0" type="bow" quantity="1"/>
-                    <InventoryItem slot="1" type="arrow" quantity="64"/>
-                  </Inventory>
-                </AgentStart>
-                <AgentHandlers>
-                  <ObservationFromFullStats/>
-                  <ObservationFromNearbyEntities>
-                    <Range name="entities" xrange="20" yrange="20" zrange="60"/>
-                  </ObservationFromNearbyEntities>
-                  <ContinuousMovementCommands turnSpeedDegs="180"/>
-                </AgentHandlers>
-              </AgentSection>
-            </Mission>'''
+# DQN Agent
+class DQNAgent:
+    def __init__(self, state_size, action_size):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.memory = deque(maxlen=2000)
+        self.gamma = 0.95
+        self.epsilon = 1.0
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.learning_rate = 0.001
+        self.model = self._build_model()
 
-agent_host = MalmoPython.AgentHost()
-try:
-    agent_host.parse(sys.argv)
-except RuntimeError as e:
-    print('ERROR:', e)
-    print(agent_host.getUsage())
-    exit(1)
-if agent_host.receivedArgument("help"):
-    print(agent_host.getUsage())
-    exit(0)
+    def _build_model(self):
+        model = Sequential()
+        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dense(self.action_size, activation='linear'))
+        model.compile(loss='mse', optimizer=Adam(lr=self.learning_rate))
+        return model
 
-ACTION_LIST = constants.DISCRETE_ACTIONS
-NUM_ACTIONS = len(ACTION_LIST)
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
 
-# 1. Build a tiny RLAgent just to extract state‐size and reward logic:
-state_extractor = RLAgent(action_list=ACTION_LIST,
-                          num_actions=NUM_ACTIONS,
-                          debug=False)
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])
 
-dummy_state = state_extractor.get_state_representation(None,
-                                                      constants.GHAST_START_HEALTH)
-state_size = len(dummy_state)
+    def replay(self, batch_size):
+        minibatch = random.sample(self.memory, min(len(self.memory), batch_size))
+        for state, action, reward, next_state, done in minibatch:
+            target = reward
+            if not done:
+                target = reward + self.gamma * np.amax(self.model.predict(next_state)[0])
+            target_f = self.model.predict(state)
+            target_f[0][action] = target
+            self.model.fit(state, target_f, epochs=1, verbose=0)
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
 
-# 2. Instantiate your DQNAgent
-dqn_agent = DQNAgent(state_size=state_size,
-                     action_list=ACTION_LIST,
-                     learning_rate=constants.DQN_LEARNING_RATE,
-                     gamma=constants.DISCOUNT_FACTOR,
-                     epsilon_start=constants.EPSILON_START,
-                     epsilon_end=constants.EPSILON_END,
-                     epsilon_decay_steps=constants.EPSILON_DECAY_STEPS,
-                     debug=constants.DEBUG_AGENT)
+# Action mapping (no turn/pitch, handled by aim logic)
+ACTIONS = [
+    {"move":1},    # Move forward
+    {"move":-1},   # Move backward
+    {"strafe":-1}, # Strafe left
+    {"strafe":1},  # Strafe right
+    {"jump":1},    # Jump
+    {"pitch":0.05},  # Pitch up
+    {"pitch":-0.05}, # Pitch down
+    {"use":1},     # Shoot arrow (use bow)
+    {},            # Do nothing
+]
 
-# 3. Loop over episodes
-num_missions = 50
-for episode in range(1, num_missions+1):
-    print("\n--- Episode %d ---" % episode)
-    mission = MalmoPython.MissionSpec(missionXML, True)
-    record = MalmoPython.MissionRecordSpec()
-    # agent_host.startMission(mission, record)
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            agent_host.startMission(mission, record)
-            break
-        except MalmoPython.MissionException as e:
-            print("Start mission failed:", e)
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(5)
+def get_state(obs):
+    # [agent_x, agent_y, agent_z, agent_health, ghast_x, ghast_y, ghast_z, ghast_health]
+    agent_x = obs.get("XPos", 0)
+    agent_y = obs.get("YPos", 0)
+    agent_z = obs.get("ZPos", 0)
+    agent_health = obs.get("Life", 20)
+    ghast_x, ghast_y, ghast_z, ghast_health = 0, 0, 0, 0
+    if "entities" in obs:
+        for ent in obs["entities"]:
+            if ent["name"] == "Ghast":
+                ghast_x = ent["x"]
+                ghast_y = ent["y"]
+                ghast_z = ent["z"]
+                ghast_health = ent.get("life", 10)
+    return np.array([[agent_x, agent_y, agent_z, agent_health, ghast_x, ghast_y, ghast_z, ghast_health]])
 
-    # wait for mission to really begin …
+def get_reward(obs, prev_obs):
+    reward = -1
+    if prev_obs is not None:
+        if obs.get("Life", 20) < prev_obs.get("Life", 20):
+            reward -= 10  # hit by fireball
+        prev_ghast_health = 10
+        ghast_health = 10
+        if "entities" in prev_obs:
+            for ent in prev_obs["entities"]:
+                if ent["name"] == "Ghast":
+                    prev_ghast_health = ent.get("life", 10)
+        if "entities" in obs:
+            for ent in obs["entities"]:
+                if ent["name"] == "Ghast":
+                    ghast_health = ent.get("life", 10)
+        if ghast_health < prev_ghast_health:
+            reward += 20  # hit ghast
+        if ghast_health <= 0 and prev_ghast_health > 0:
+            reward += 100  # killed ghast
+    return reward
+
+def is_done(obs):
+    if obs is None:
+        return True
+    if obs.get("Life", 0) <= 0:
+        return True
+    if "entities" in obs:
+        for ent in obs["entities"]:
+            if ent["name"] == "Ghast" and ent.get("life", 10) <= 0:
+                return True
+    return False
+
+def wait_for_mission_start(agent_host):
     world_state = agent_host.getWorldState()
     while not world_state.has_mission_begun:
         time.sleep(0.1)
         world_state = agent_host.getWorldState()
 
-    # initialize tracking variables
-    prev_state = None
-    prev_action = None
-    prev_obs = None
-    prev_agent_health = constants.AGENT_START_HEALTH
-    prev_ghast_health = constants.GHAST_START_HEALTH
-    episode_reward = 0.0
-
-    # 4. Main step loop
-    while world_state.is_mission_running:
-        # pull in new observation
-        if world_state.number_of_observations_since_last_state > 0:
-            obs_text = world_state.observations[-1].text
-            obs = json.loads(obs_text)
-
-            # build your DQN state
-            curr_state = state_extractor.get_state_representation(obs,
-                                                                  prev_ghast_health)
-
-            # if we have a previous step, learn from it
-            if prev_state is not None:
-                # compute your custom reward
-                curr_agent_health = float(obs.get('Life', prev_agent_health))
-                gh = next((e for e in obs.get('entities', [])
-                           if e['name']=='Ghast'), None)
-                curr_ghast_health = float(gh.get('life', prev_ghast_health)
-                                         ) if gh else prev_ghast_health
-
-                reward = state_extractor.calculate_custom_reward(
-                    obs, prev_obs,
-                    prev_agent_health, curr_agent_health,
-                    prev_ghast_health, curr_ghast_health,
-                    ACTION_LIST[prev_action],
-                    ghast_killed_flag=False,
-                    xml_reward=sum(r.getValue() for r in world_state.rewards),
-                    time_since_mission_start_ms=obs.get('TimeAlive',0),
-                    mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
-                    died=(curr_agent_health<=0)
-                )
-                episode_reward += reward
-
-                # store in replay buffer and train
-                dqn_agent.remember(prev_state, prev_action,
-                                   reward, curr_state, False)
-                dqn_agent.replay()
-
-            # choose and send next action
-            action_idx = dqn_agent.act(np.array(curr_state))
-            if world_state.is_mission_running:
-                #add charge and shoot
-                if ACTION_LIST[action_idx] == "EXECUTE_FULL_SHOT":
-                    agent_host.sendCommand("use 1")     # Start charging
-                    # Wait for a fixed number of game ticks.
-                    # This requires your environment to tick and for you to observe those ticks.
-                    # For example, if you get an observation per tick:
-                    num_charge_ticks = 25  # e.g., 0.5 seconds if 20 ticks/sec
-                    for _ in range(num_charge_ticks):
-                        world_state = agent_host.getWorldState()
-                        if not world_state.is_mission_running:
-                            break
-                        if world_state.number_of_observations_since_last_state > 0:
-                            time.sleep(0.05)
-                    if agent_host.getWorldState().is_mission_running:
-                        agent_host.sendCommand("use 0") # Release/Shoot
-                agent_host.sendCommand(ACTION_LIST[action_idx])
-
-            # shift “prev” variables
-            prev_state = curr_state
-            prev_action = action_idx
-            prev_obs = obs
-            prev_agent_health = float(obs.get('Life', prev_agent_health))
-            prev_ghast_health = (next((e for e in obs.get('entities', [])
-                                      if e['name']=='Ghast'), None)
-                                or {'life': prev_ghast_health})['life']
-
-        # advance world_state
-        world_state = agent_host.getWorldState()
-        if world_state.errors:
-            for e in world_state.errors: print("Error:", e.text)
+def get_observation(agent_host):
+    world_state = agent_host.getWorldState()
+    while world_state.number_of_observations_since_last_state == 0 and world_state.is_mission_running:
         time.sleep(0.05)
+        world_state = agent_host.getWorldState()
+    if not world_state.is_mission_running:
+        return None
+    obs_text = world_state.observations[-1].text
+    obs = json.loads(obs_text)
+    return obs
 
-    # 5. Terminal transition (final reward & learning)
-    if prev_state is not None:
-        final_reward = state_extractor.calculate_custom_reward(
-            prev_obs, prev_obs,
-            prev_agent_health, prev_agent_health,
-            prev_ghast_health, 0.0,
-            ACTION_LIST[prev_action],
-            ghast_killed_flag=False,
-            xml_reward=0.0,
-            time_since_mission_start_ms=constants.MISSION_TIME_LIMIT_MS,
-            mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
-            died=(prev_agent_health<=0)
-        )
-        episode_reward += final_reward
-        dqn_agent.remember(prev_state, prev_action,
-                           final_reward, None, True)
-        dqn_agent.replay()
+def send_action(agent_host, action):
+    # Reset all movement commands
+    agent_host.sendCommand("move 0")
+    agent_host.sendCommand("strafe 0")
+    agent_host.sendCommand("jump 0")
+    agent_host.sendCommand("use 0")
+    agent_host.sendCommand("pitch 0")
+    # Send the selected action
+    for cmd, val in action.items():
+        agent_host.sendCommand("{} {}".format(cmd, val))
+    if "use" in action:
+        time.sleep(0.8)
+        agent_host.sendCommand("use 0")
 
-    print("Episode %d complete, total reward = %.2f" %
-          (episode, episode_reward))
+# def aim_at_ghast(agent_host, agent_obs, ghast_obs, yaw_step=2.0, pitch_step=2.0):
+#     # Calculate the yaw and pitch needed to aim at the Ghast
+#     x_a, y_a, z_a = agent_obs.get("XPos", 0), agent_obs.get("YPos", 0), agent_obs.get("ZPos", 0)
+#     x_g, y_g, z_g = ghast_obs["x"], ghast_obs["y"], ghast_obs["z"]
+#     current_yaw = agent_obs.get("Yaw", 0)
+#     current_pitch = agent_obs.get("Pitch", 0)
+#     dx = x_g - x_a
+#     dy = y_g - y_a
+#     dz = z_g - z_a
+#     desired_yaw = -math.degrees(math.atan2(dx, dz))
+#     desired_pitch = -math.degrees(math.atan2(dy, math.sqrt(dx**2 + dz**2)))
+#     # Compute difference
+#     yaw_diff = (desired_yaw - current_yaw + 180) % 360 - 180
+#     pitch_diff = desired_pitch - current_pitch
+#     # Send turn and pitch commands if needed
+#     if abs(yaw_diff) > yaw_step:
+#         agent_host.sendCommand("turn {}".format(1 if yaw_diff > 0 else -1))
+#     else:
+#         agent_host.sendCommand("turn 0")
+#     if abs(pitch_diff) > pitch_step:
+#         agent_host.sendCommand("pitch {}".format(0.05 if pitch_diff > 0 else -0.05))
+#     else:
+#         agent_host.sendCommand("pitch 0")
+#     # If already aimed, return True
+#     return abs(yaw_diff) <= yaw_step and abs(pitch_diff) <= pitch_step
 
-    # optionally save your weights every N episodes
-    if episode % 5 == 0:
-        dqn_agent.model.save_weights("dqn_weights_ep%d.h5" % episode)
-        print("Saved DQN weights after episode", episode)
+def aim_at_ghast(agent_host, agent_obs, ghast_obs, yaw_step=2.0, pitch_step=2.0):
+    import math
+    x_a, y_a, z_a = agent_obs.get("XPos", 0), agent_obs.get("YPos", 0), agent_obs.get("ZPos", 0)
+    x_g, y_g, z_g = ghast_obs["x"], ghast_obs["y"], ghast_obs["z"]
+    current_yaw = agent_obs.get("Yaw", 0)
+    current_pitch = agent_obs.get("Pitch", 0)
+    dx = x_g - x_a
+    dy = y_g - y_a
+    dz = z_g - z_a
+    desired_yaw = -math.degrees(math.atan2(dx, dz))
+    desired_pitch = -math.degrees(math.atan2(dy, math.sqrt(dx**2 + dz**2)))
+    # Compute difference
+    yaw_diff = (desired_yaw - current_yaw + 180) % 360 - 180
+    pitch_diff = desired_pitch - current_pitch
 
-print("All training finished.")
+    # Use small discrete steps
+    turn = 0
+    pitch = 0
+    if abs(yaw_diff) > yaw_step:
+        turn = 0.1 if yaw_diff > 0 else -0.1
+    if abs(pitch_diff) > pitch_step:
+        pitch = 0.05 if pitch_diff > 0 else -0.05
+
+    # Send commands for this tick only
+    agent_host.sendCommand("turn {}".format(turn))
+    agent_host.sendCommand("pitch {}".format(pitch))
+
+    # Return True if aimed close enough
+    return abs(yaw_diff) <= yaw_step and abs(pitch_diff) <= pitch_step
+
+if __name__ == "__main__":
+    state_size = 8
+    action_size = len(ACTIONS)
+    agent = DQNAgent(state_size, action_size)
+    episodes = 100
+    batch_size = 32
+    episode_rewards = []
+
+    agent_host = Malmo.AgentHost()
+    for e in range(episodes):
+        mission = Malmo.MissionSpec(missionXML, True)
+        mission_record = Malmo.MissionRecordSpec()
+        max_retries = 3
+        for retry in range(max_retries):
+            try:
+                agent_host.startMission(mission, mission_record)
+                break
+            except RuntimeError as err:
+                if retry == max_retries - 1:
+                    print("Error starting mission:", err)
+                    exit(1)
+                else:
+                    time.sleep(2)
+        print("Waiting for mission to start...")
+        wait_for_mission_start(agent_host)
+        print("Mission running")
+        obs = get_observation(agent_host)
+        state = get_state(obs)
+        prev_obs = None
+        total_reward = 0
+        for t in range(1000):
+            # Find Ghast
+            ghast = None
+            if obs and "entities" in obs:
+                for ent in obs["entities"]:
+                    if ent["name"] == "Ghast":
+                        ghast = ent
+                        break
+            # Aim at Ghast if present
+            aimed = True
+            if ghast:
+                aimed = aim_at_ghast(agent_host, obs, ghast)
+            # Only shoot if aimed
+            if aimed:
+                action_idx = agent.act(state)
+                action = ACTIONS[action_idx]
+                send_action(agent_host, action)
+            else:
+                send_action(agent_host, {})  # Do nothing while aiming
+            next_obs = get_observation(agent_host)
+            if next_obs is None:
+                print("Mission ended (timeout or quit).")
+                break
+            next_state = get_state(next_obs)
+            reward = get_reward(next_obs, obs)
+            done = is_done(next_obs)
+            agent.remember(state, action_idx, reward, next_state, done)
+            state = next_state
+            obs = next_obs
+            total_reward += reward
+            if done:
+                break
+            agent.replay(batch_size)
+        world_state = agent_host.getWorldState()
+        while world_state.is_mission_running:
+            time.sleep(0.1)
+            world_state = agent_host.getWorldState()
+        episode_rewards.append(total_reward)
+        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}".format(e+1, episodes, total_reward, agent.epsilon))
+        time.sleep(1)
+    plt.plot(episode_rewards)
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.title('DQN Agent Performance')
+    plt.show()
+
