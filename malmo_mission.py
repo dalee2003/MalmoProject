@@ -169,7 +169,7 @@ else:
     print("No DQN weights specified to load. Starting with new weights.")
 
 # 3. Loop over episodes
-ep_start = 121
+ep_start = 151
 num_missions = 10
 for episode in range(ep_start, ep_start + num_missions):
     print("\n--- Episode %d ---" % episode)
