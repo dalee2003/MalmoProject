@@ -139,8 +139,8 @@ class RLAgent:
             aiming_at_ghast_yaw_bin, aiming_at_ghast_pitch_bin,
         ) + tuple(fireball_features)
 
-#         if self.debug and self.training_step_count % 100 == 0:
-#             print("State: {}".format(state_tuple))
+        if self.debug and self.training_step_count % 100 == 0:
+            print("State: {}".format(state_tuple))
         return state_tuple
 
     def choose_action(self, state_tuple):
@@ -204,7 +204,7 @@ class RLAgent:
                                 xml_reward, time_since_mission_start_ms, mission_time_limit_ms,
                                 died=False):
         reward = xml_reward
-
+        if self.debug: print("Reward (XML): {:.2f}".format(xml_reward)) # Print XML reward
 
         _REWARD_GOT_HIT = constants.REWARD_GOT_HIT 
         _REWARD_AGENT_DEATH = constants.REWARD_AGENT_DEATH 
@@ -224,6 +224,7 @@ class RLAgent:
             if self.debug: print("REWARD: Agent DIED! ({})".format(_REWARD_AGENT_DEATH))
 
         reward += _REWARD_TIME_PENALTY_STEP
+        if self.debug: print("REWARD: Time penalty step ({})".format(_REWARD_TIME_PENALTY_STEP)) # Print for time step
 
         ghast_damaged_by_agent_shot = False
         action_shoot_cmd = "EXECUTE_FULL_SHOT"
@@ -237,6 +238,7 @@ class RLAgent:
                 # Ghast health dropped but not directly by the agent's last action (e.g., environmental damage, self-inflicted).
                 if self.debug: print("REWARD: Ghast health dropped, but NOT from agent's shot. No hit bonus.")
 
+
         # REWARD FOR KILLING THE GHAST
         # Only reward if:
         # 1. `ghast_killed_flag` is true (meaning its health went <= 0 in this step).
@@ -244,8 +246,10 @@ class RLAgent:
         # The `ghast_killed_flag` now comes from `malmo_mission.py` and means Ghast health reached <= 0 *in this specific step*.
         if ghast_killed_flag and ghast_damaged_by_agent_shot: # Ensure both conditions are met for a kill attributed to the agent's shot
             reward += _REWARD_KILL_GHAST
+            if self.debug: print("REWARD: Ghast KILLED (bonus: {})".format(_REWARD_KILL_GHAST)) # Print kill bonus
             reward += _REWARD_MISSION_SUCCESS
-            if self.debug: print("REWARD: Agent KILLED Ghast with a shot! (Bonus: {})".format(_REWARD_KILL_GHAST + _REWARD_MISSION_SUCCESS))
+            if self.debug: print("REWARD: Mission success (bonus: {})".format(_REWARD_MISSION_SUCCESS)) # Print mission success bonus
+            if self.debug: print("REWARD: Agent KILLED Ghast with a shot! (Total Kill Bonus: {})".format(_REWARD_KILL_GHAST + _REWARD_MISSION_SUCCESS))
         elif ghast_killed_flag: # If ghast died but not by agent's shot
             if self.debug: print("REWARD: Ghast died, but NOT from agent's shot. No kill/mission success bonus.")
 
@@ -292,13 +296,16 @@ class RLAgent:
                     print("looking at ghast")
             
         reward += reward_looking_at_ghast
+        if self.debug and reward_looking_at_ghast > 0: print("REWARD: Looking at Ghast! ({})".format(reward_looking_at_ghast)) # Print for looking at Ghast
         
          # Check if shooting (even if no bow, agent might try "attack")
         action_shoot_cmd = "EXECUTE_FULL_SHOT"
         if action_command_taken == action_shoot_cmd:
             if reward_looking_at_ghast > 0:
                 reward += _REWARD_SHOOT_ARROW
+                if self.debug: print("REWARD: Shot arrow while aiming! ({})".format(_REWARD_SHOOT_ARROW)) # Print for good shot
             else: reward -= _REWARD_SHOOT_ARROW
+            if self.debug and reward_looking_at_ghast == 0: print("REWARD: Wasted shot (not aiming)! ({})".format(-_REWARD_SHOOT_ARROW)) # Print for wasted shot
 
 
         if self.debug and self.training_step_count % 50 == 0:
