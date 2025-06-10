@@ -48,17 +48,17 @@ GHAST_START_HEALTH = 10.0
 # -----------------------------------------------------------------------------
 # Reward Values
 # -----------------------------------------------------------------------------
-REWARD_HIT_GHAST_CUSTOM_BONUS = 1000 # If you add rewards for damaging later
-REWARD_KILL_GHAST = 2000
-REWARD_SHOOT_ARROW = 500             # No arrows for now, so 0. Was 2.
-REWARD_MISSION_SUCCESS = 2000
-REWARD_GOT_HIT = -5
+REWARD_HIT_GHAST_CUSTOM_BONUS = 500 # If you add rewards for damaging later
+REWARD_KILL_GHAST = 500
+REWARD_SHOOT_ARROW = 5000             # No arrows for now, so 0. Was 2.
+REWARD_MISSION_SUCCESS = 500
+REWARD_GOT_HIT = -50
 REWARD_AGENT_DEATH = -10
 REWARD_TIME_PENALTY_STEP = 2
 REWARD_STAY_STILL_PENALTY = 1
 REWARD_FIREBALL_NEAR_PENALTY = -5
 REWARD_WASTED_SHOT = -50
-REWARD_LOOKING_AT_GHAST = 500
+REWARD_LOOKING_AT_GHAST = 5000
 
 # -----------------------------------------------------------------------------
 # Mission Parameters
@@ -77,7 +77,7 @@ DEBUG_MISSION_LOAD = False
 # -----------------------------------------------------------------------------
 Q_TABLE_SAVE_FILENAME_BASE = "q_table_ghast_battle_no_inv"
 Q_TABLE_FINAL_SAVE_FILENAME = "q_table_ghast_battle_no_inv_final.json"
-Q_TABLE_LOAD_FILENAME = "dqn_weights_ep150.h5" # Set to a filename if you want to load a pre-trained table
+Q_TABLE_LOAD_FILENAME = "dqn_weights_ep215.h5" # Set to a filename if you want to load a pre-trained table
 
 # -----------------------------------------------------------------------------
 # Deep Q Learning Parameters

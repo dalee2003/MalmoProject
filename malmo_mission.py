@@ -169,8 +169,8 @@ else:
     print("No DQN weights specified to load. Starting with new weights.")
 
 # 3. Loop over episodes
-ep_start = 151
-num_missions = 10
+ep_start = 215
+num_missions = 5
 for episode in range(ep_start, ep_start + num_missions):
     print("\n--- Episode %d ---" % episode)
     mission = MalmoPython.MissionSpec(missionXML, True)
@@ -209,7 +209,7 @@ for episode in range(ep_start, ep_start + num_missions):
             obs_text = world_state.observations[-1].text
             obs = json.loads(obs_text)
 
-            # Find Ghast entity in current observation
+            # Find Ghast entity in current observation (moved this higher to be always defined)
             gh = next((e for e in obs.get('entities', [])
                        if e['name']=='Ghast'), None)
 
@@ -223,6 +223,7 @@ for episode in range(ep_start, ep_start + num_missions):
                 curr_agent_health = float(obs.get('Life', prev_agent_health))
                 
                 # Ensure curr_ghast_health is correctly determined from obs, defaulting to previous if not found
+                # 'gh' is guaranteed to be defined here now.
                 curr_ghast_health = float(gh.get('life', prev_ghast_health)
                                          ) if gh else prev_ghast_health
                 
@@ -280,9 +281,8 @@ for episode in range(ep_start, ep_start + num_missions):
             prev_action = action_idx
             prev_obs = obs
             prev_agent_health = float(obs.get('Life', prev_agent_health))
-            prev_ghast_health = (next((e for e in obs.get('entities', [])
-                                      if e['name']=='Ghast'), None)
-                                or {'life': prev_ghast_health})['life']
+            # The 'gh' variable is now guaranteed to be defined from above.
+            prev_ghast_health = (gh or {'life': prev_ghast_health})['life'] # Use 'gh' directly if it was found, else use previous health
 
         # advance world_state
         world_state = agent_host.getWorldState()
