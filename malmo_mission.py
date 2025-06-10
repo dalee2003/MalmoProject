@@ -36,91 +36,72 @@ missionXML = '''<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
                   <FlatWorldGenerator generatorString="3;7,2;1;"/>
                   
                   <DrawingDecorator>
-                    <!-- clearing mission envionrment to start on blank since missions build on top of each other apparently -->
                     <DrawCuboid x1="0" y1="2" z1="0" x2="20" y2="40" z2="100" type="air"/>
                   
-                    <!-- right wall -->
                     <DrawCuboid x1="0" y1="0" z1="0" x2="0" y2="20" z2="60" type="stone"/>
                     
-                    <!-- left wall -->
                     <DrawCuboid x1="15" y1="0" z1="0" x2="15" y2="20" z2="60" type="stone"/>
                     
-                    <!-- ceiling -->
                     <DrawCuboid x1="0" y1="20" z1="0" x2="15" y2="20" z2="60" type="stone"/>
                     
-                    <!-- floor -->
                     <DrawCuboid x1="0" y1="1" z1="0" x2="15" y2="1" z2="60" type="stone"/>
                     
-                    <!-- far wall -->
                     <DrawCuboid x1="0" y1="0" z1="60" x2="15" y2="20" z2="60" type="stone"/>
                     
-                    <!-- close wall -->
                     <DrawCuboid x1="0" y1="0" z1="0" x2="15" y2="20" z2="0" type="stone"/>
                     
-                    <!-- glowstones at z = 0 (close wall) -->
                     <DrawBlock x="4" y="9" z="0" type="glowstone"/>
                     <DrawBlock x="8" y="9" z="0" type="glowstone"/>
                     <DrawBlock x="12" y="9" z="0" type="glowstone"/>
                     
-                    <!-- glowstones at z = 10 -->
                     <DrawBlock x="0" y="9" z="10" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="10" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="10" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="10" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="10" type="glowstone"/>
                     
-                    <!-- glowstones at z = 20 -->
                     <DrawBlock x="0" y="9" z="20" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="20" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="20" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="20" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="20" type="glowstone"/>
                     
-                    <!-- glowstones at z = 30 -->
                     <DrawBlock x="0" y="9" z="30" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="30" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="30" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="30" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="30" type="glowstone"/>
                     
-                    <!-- glowstones at z = 40 -->
                     <DrawBlock x="0" y="9" z="40" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="40" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="40" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="40" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="40" type="glowstone"/>
                     
-                    <!-- glowstones at z = 50 -->
                     <DrawBlock x="0" y="9" z="50" type="glowstone"/>
                     <DrawBlock x="15" y="9" z="50" type="glowstone"/>
                     <DrawBlock x="4" y="20" z="50" type="glowstone"/>
                     <DrawBlock x="8" y="20" z="50" type="glowstone"/>
                     <DrawBlock x="12" y="20" z="50" type="glowstone"/>
                     
-                    <!-- glowstones at z = 60 (far wall) -->
                     <DrawBlock x="4" y="9" z="60" type="glowstone"/>
                     <DrawBlock x="8" y="9" z="60" type="glowstone"/>
                     <DrawBlock x="12" y="9" z="60" type="glowstone"/>
                     
-                    <!-- ghast spawns at x="6.5" y="6" z="58" -->
                     <DrawEntity x="6.5" y="4" z="58" type="Ghast"/>
                     
-                    <!-- glass barricade (to prevent Ghast from moving towards agent) -->
                     <DrawCuboid x1="0" y1="0" z1="50" x2="15" y2="4" z2="50" type="glass"/>
                     <DrawCuboid x1="0" y1="8" z1="50" x2="14" y2="19" z2="59" type="glass"/>
                     
 
                     <DrawCuboid x1="3" y1="1" z1="55" x2="10" y2="1" z2="61" type="glass"/>
                     
-                    <!-- Top ceiling of ghast enclosure (Y=8, above ghast's max height) -->
                     <DrawCuboid x1="3" y1="8" z1="55" x2="10" y2="8" z2="61" type="glass"/>
                     
                     <DrawCuboid x1="3" y1="2" z1="61" x2="10" y2="7" z2="61" type="glass"/> 
                     
-                    <!-- Left wall of ghast enclosure (X=3) - runs from Y=2 to Y=7, and Z=55 to Z=60 -->
                     <DrawCuboid x1="3" y1="2" z1="55" x2="3" y2="7" z2="60" type="glass"/>
                     
-                    <!-- Right wall of ghast enclosure (X=10) - runs from Y=2 to Y=7, and Z=55 to Z=60 -->
                     <DrawCuboid x1="10" y1="2" z1="55" x2="10" y2="7" z2="60" type="glass"/>
                   
                   </DrawingDecorator>
@@ -188,7 +169,7 @@ else:
     print("No DQN weights specified to load. Starting with new weights.")
 
 # 3. Loop over episodes
-ep_start = 101
+ep_start = 121
 num_missions = 10
 for episode in range(ep_start, ep_start + num_missions):
     print("\n--- Episode %d ---" % episode)
@@ -219,7 +200,7 @@ for episode in range(ep_start, ep_start + num_missions):
     prev_agent_health = constants.AGENT_START_HEALTH
     prev_ghast_health = constants.GHAST_START_HEALTH
     episode_reward = 0.0
-    ghast_died_in_episode_by_agent_action = False
+    ghast_was_killed_during_episode = False # This flag tracks if it was killed by agent during episode
 
     # 4. Main step loop
     while world_state.is_mission_running:
@@ -227,6 +208,10 @@ for episode in range(ep_start, ep_start + num_missions):
         if world_state.number_of_observations_since_last_state > 0:
             obs_text = world_state.observations[-1].text
             obs = json.loads(obs_text)
+
+            # Find Ghast entity in current observation
+            gh = next((e for e in obs.get('entities', [])
+                       if e['name']=='Ghast'), None)
 
             # build your DQN state
             curr_state = state_extractor.get_state_representation(obs,
@@ -236,15 +221,16 @@ for episode in range(ep_start, ep_start + num_missions):
             if prev_state is not None:
                 # compute your custom reward
                 curr_agent_health = float(obs.get('Life', prev_agent_health))
-                gh = next((e for e in obs.get('entities', [])
-                   if e['name']=='Ghast'), None)
+                
                 # Ensure curr_ghast_health is correctly determined from obs, defaulting to previous if not found
                 curr_ghast_health = float(gh.get('life', prev_ghast_health)
                                          ) if gh else prev_ghast_health
                 
+                # Determine if Ghast's health went to zero in this specific step
                 ghast_health_became_zero_this_step = (curr_ghast_health <= 0 and prev_ghast_health > 0)
 
-                reward = state_extractor.calculate_custom_reward(
+                # Call calculate_custom_reward, now expecting two return values
+                step_reward, ghast_killed_in_this_step_by_agent = state_extractor.calculate_custom_reward(
                     obs, prev_obs,
                     prev_agent_health, curr_agent_health,
                     prev_ghast_health, curr_ghast_health,
@@ -255,11 +241,18 @@ for episode in range(ep_start, ep_start + num_missions):
                     mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
                     died=(curr_agent_health<=0)
                 )
-                episode_reward += reward
+                episode_reward += step_reward # Add the reward to total
+
+                # If the Ghast was killed by the agent in this step, set the episode-wide flag and end the mission
+                if ghast_killed_in_this_step_by_agent:
+                    ghast_was_killed_during_episode = True
+                    agent_host.sendCommand("quit") # Send quit command to end mission immediately
+                    if constants.DEBUG_AGENT:
+                        print("AGENT KILLED GHAST! Mission will now end.")
 
                 # store in replay buffer and train
                 dqn_agent.remember(prev_state, prev_action,
-                                   reward, curr_state, False)
+                                   step_reward, curr_state, False) # Use step_reward
                 dqn_agent.replay()
 
             # choose and send next action
@@ -299,22 +292,22 @@ for episode in range(ep_start, ep_start + num_missions):
 
     # 5. Terminal transition (final reward & learning)
     if prev_state is not None:
-        final_reward = state_extractor.calculate_custom_reward(
-        prev_obs, prev_obs, # Pass the last observation as both current and previous for final step
-        prev_agent_health, prev_agent_health, # Agent health at the end of the mission
-        # Crucially, pass the actual prev_ghast_health for the final step.
-        # The 'killed' bonus should only trigger if ghast_killed_flag from the main loop was true.
-        prev_ghast_health, prev_ghast_health, # Ghast health at the end of the mission
-        ACTION_LIST[prev_action],
-        ghast_killed_flag=(prev_ghast_health <= 0), # Only true if ghast was actually dead at final observation
-        xml_reward=0.0,
-        time_since_mission_start_ms=constants.MISSION_TIME_LIMIT_MS,
-        mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
-        died=(prev_agent_health<=0)
-    )
-        episode_reward += final_reward
+        # The ghast_killed_flag for the final reward calculation should reflect if it was killed by agent during episode.
+        # Do NOT force current_ghast_health to 0.0 here for final reward.
+        final_reward, _ = state_extractor.calculate_custom_reward( # Discard the second return value here
+            prev_obs, prev_obs, # Pass the last observation as both current and previous for final step
+            prev_agent_health, prev_agent_health, # Agent health at the end of the mission
+            prev_ghast_health, prev_ghast_health, # Pass actual prev_ghast_health, not 0.0
+            ACTION_LIST[prev_action],
+            ghast_killed_flag=ghast_was_killed_during_episode, # Use the episode-wide flag
+            xml_reward=0.0, # No additional XML rewards at end
+            time_since_mission_start_ms=constants.MISSION_TIME_LIMIT_MS,
+            mission_time_limit_ms=constants.MISSION_TIME_LIMIT_MS,
+            died=(prev_agent_health<=0)
+        )
+        episode_reward += final_reward # Add the final reward to the total
         dqn_agent.remember(prev_state, prev_action,
-                       final_reward, None, True)
+                           final_reward, None, True)
         dqn_agent.replay()
 
     print("Episode %d complete, total reward = %.2f" %
