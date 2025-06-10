@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import json
+import math
 
 # Attempt to import constants, provide defaults if not found
 try:
@@ -20,7 +21,7 @@ class RLAgent:
                  epsilon_decay_steps=constants.EPSILON_DECAY_STEPS,
                  q_table_load_file=None,
                  debug=constants.DEBUG_AGENT if hasattr(constants, 'DEBUG_AGENT') else False):
-
+        
         self.action_list = action_list
         self.num_actions = num_actions
         self.alpha = learning_rate
@@ -29,7 +30,7 @@ class RLAgent:
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay_steps = epsilon_decay_steps
-        self.debug = debug
+        self.debug = True
 
         self.q_table = {}
         self.training_step_count = 0
@@ -42,7 +43,6 @@ class RLAgent:
                 self.num_actions, self.alpha, self.gamma, self.epsilon))
 
     def _discretize_value(self, value, bins_or_size):
-
 
         if isinstance(bins_or_size, list):
             # Ensure bins_or_size is not empty and is a list of numbers
@@ -59,14 +59,14 @@ class RLAgent:
 
     def get_state_representation(self, malmo_obs_dict, last_known_ghast_health):
  
-        _POS_BIN_SIZE = constants.POS_BIN_SIZE 
-        _AGENT_HEALTH_BINS = constants.AGENT_HEALTH_BINS 
-        _GHAST_HEALTH_BINS = constants.GHAST_HEALTH_BINS 
-        _AGENT_YAW_BIN_SIZE = constants.AGENT_YAW_BIN_SIZE 
-        _MAX_FIREBALLS_TO_CONSIDER = constants.MAX_FIREBALLS_TO_CONSIDER 
-        _FIREBALL_POS_BIN_SIZE = constants.FIREBALL_POS_BIN_SIZE 
-        _AGENT_START_HEALTH = constants.AGENT_START_HEALTH 
-        _GHAST_START_HEALTH = constants.GHAST_START_HEALTH 
+        _POS_BIN_SIZE = constants.POS_BIN_SIZE                  
+        _AGENT_HEALTH_BINS = constants.AGENT_HEALTH_BINS        
+        _GHAST_HEALTH_BINS = constants.GHAST_HEALTH_BINS        
+        _AGENT_YAW_BIN_SIZE = constants.AGENT_YAW_BIN_SIZE      
+        _MAX_FIREBALLS_TO_CONSIDER = constants.MAX_FIREBALLS_TO_CONSIDER
+        _FIREBALL_POS_BIN_SIZE = constants.FIREBALL_POS_BIN_SIZE
+        _AGENT_START_HEALTH = constants.AGENT_START_HEALTH      
+        _GHAST_START_HEALTH = constants.GHAST_START_HEALTH      
 
 
         if malmo_obs_dict is None:
@@ -118,7 +118,6 @@ class RLAgent:
             ghast_rel_z_bin = self._discretize_value(ghast_rel_z, _POS_BIN_SIZE)
             
 
-
         fireball_features = []
         fireballs = [e for e in entities if e['name'] == 'Fireball' or e['name'] == 'SmallFireball']
         fireballs.sort(key=lambda fb: np.sqrt((fb['x']-agent_x)**2 + (fb['y']-agent_y)**2 + (fb['z']-agent_z)**2))
@@ -140,8 +139,8 @@ class RLAgent:
             aiming_at_ghast_yaw_bin, aiming_at_ghast_pitch_bin,
         ) + tuple(fireball_features)
 
-        if self.debug and self.training_step_count % 100 == 0:
-            print("State: {}".format(state_tuple))
+#         if self.debug and self.training_step_count % 100 == 0:
+#             print("State: {}".format(state_tuple))
         return state_tuple
 
     def choose_action(self, state_tuple):
@@ -226,19 +225,80 @@ class RLAgent:
 
         reward += _REWARD_TIME_PENALTY_STEP
 
-        if current_ghast_health < prev_ghast_health and prev_ghast_health > 0:
-            reward += _REWARD_HIT_GHAST_CUSTOM_BONUS
-            if self.debug: print("REWARD: Hit Ghast! (Custom Bonus: {})".format(_REWARD_HIT_GHAST_CUSTOM_BONUS))
+        ghast_damaged_by_agent_shot = False
+        action_shoot_cmd = "EXECUTE_FULL_SHOT"
 
-        if ghast_killed_flag or (current_ghast_health <= 0 and prev_ghast_health > 0) :
+        if current_ghast_health < prev_ghast_health and prev_ghast_health > 0:
+            if action_command_taken == action_shoot_cmd:
+                reward += _REWARD_HIT_GHAST_CUSTOM_BONUS
+                ghast_damaged_by_agent_shot = True # This indicates a confirmed hit by agent's shot
+                if self.debug: print("REWARD: Ghast DAMAGED by agent's shot! (Bonus: {})".format(_REWARD_HIT_GHAST_CUSTOM_BONUS))
+            else:
+                # Ghast health dropped but not directly by the agent's last action (e.g., environmental damage, self-inflicted).
+                if self.debug: print("REWARD: Ghast health dropped, but NOT from agent's shot. No hit bonus.")
+
+        # REWARD FOR KILLING THE GHAST
+        # Only reward if:
+        # 1. `ghast_killed_flag` is true (meaning its health went <= 0 in this step).
+        # 2. AND `ghast_damaged_by_agent_shot` is true (meaning the *last* action was a shot that caused damage and potentially the kill).
+        # The `ghast_killed_flag` now comes from `malmo_mission.py` and means Ghast health reached <= 0 *in this specific step*.
+        if ghast_killed_flag and ghast_damaged_by_agent_shot: # Ensure both conditions are met for a kill attributed to the agent's shot
             reward += _REWARD_KILL_GHAST
             reward += _REWARD_MISSION_SUCCESS
-            if self.debug: print("REWARD: Killed Ghast! ({})".format(_REWARD_KILL_GHAST + _REWARD_MISSION_SUCCESS))
+            if self.debug: print("REWARD: Agent KILLED Ghast with a shot! (Bonus: {})".format(_REWARD_KILL_GHAST + _REWARD_MISSION_SUCCESS))
+        elif ghast_killed_flag: # If ghast died but not by agent's shot
+            if self.debug: print("REWARD: Ghast died, but NOT from agent's shot. No kill/mission success bonus.")
+
+                
+        reward_looking_at_ghast = 0.0
+        if current_obs_dict and 'entities' in current_obs_dict and 'XPos' in current_obs_dict and 'YPos' in current_obs_dict and 'ZPos' in current_obs_dict:
+            agent_x = current_obs_dict['XPos']
+            agent_y = current_obs_dict['YPos']
+            agent_z = current_obs_dict['ZPos']
+            agent_yaw = current_obs_dict.get('Yaw', 0)
+            agent_pitch = current_obs_dict.get('Pitch', 0)
+
+            ghast_entity = next((e for e in current_obs_dict['entities'] if e['name'] == 'Ghast'), None)
+
+            if ghast_entity:
+                ghast_x = ghast_entity['x']
+                ghast_y = ghast_entity['y']
+                ghast_z = ghast_entity['z']
+
+                # Calculate the vector from the agent to the ghast
+                vec_x = ghast_x - agent_x
+                vec_y = ghast_y - agent_y
+                vec_z = ghast_z - agent_z
+                
+                PITCH_OFFSET = 5.0  # or adjust this value to control how much "above" they aim
+
+                # Calculate the yaw and pitch needed to look directly at the ghast
+                target_yaw = -math.atan2(vec_x, vec_z) * 180 / math.pi
+                target_pitch = -math.atan2(vec_y + PITCH_OFFSET, math.sqrt(vec_x**2 + vec_z**2)) * 180 / math.pi
+
+                # Normalize yaw to be within -180 to 180 range
+                agent_yaw_norm = (agent_yaw + 180) % 360 - 180
+                target_yaw_norm = (target_yaw + 180) % 360 - 180
+
+                # Check if the agent's current yaw and pitch are close to the target
+                # You'll need to define a tolerance. A small tolerance means the agent
+                # has to be looking very precisely at the ghast.
+                YAW_TOLERANCE = 12  # degrees
+                PITCH_TOLERANCE = 5 # degrees
+
+                if (abs(agent_yaw_norm - target_yaw_norm) < YAW_TOLERANCE and
+                    abs(agent_pitch - target_pitch) < PITCH_TOLERANCE):
+                    reward_looking_at_ghast = constants.REWARD_LOOKING_AT_GHAST
+                    print("looking at ghast")
+            
+        reward += reward_looking_at_ghast
         
-        # Check if shooting (even if no bow, agent might try "attack")
-        action_shoot_cmd = "attack 1"
+         # Check if shooting (even if no bow, agent might try "attack")
+        action_shoot_cmd = "EXECUTE_FULL_SHOT"
         if action_command_taken == action_shoot_cmd:
-             reward += _REWARD_SHOOT_ARROW # This reward is 0 if no bow, as per constants
+            if reward_looking_at_ghast > 0:
+                reward += _REWARD_SHOOT_ARROW
+            else: reward -= _REWARD_SHOOT_ARROW
 
 
         if self.debug and self.training_step_count % 50 == 0:

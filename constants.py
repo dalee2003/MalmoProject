@@ -6,15 +6,17 @@
 DISCRETE_ACTIONS = [
     "strafe 1",         # Strafe right
     "strafe -1",        # Strafe left
-    "jump 1",           # Jump (Malmo may need "jump 0" shortly after for a single jump)
+    #"jump 1",           # Jump (Malmo may need "jump 0" shortly after for a single jump)
 
-    "turn 0.02",         # Turn right (adjust sensitivity as needed)
-    "turn -0.02",        # Turn left
-    "pitch 0.1",        # Pitch down (look down)
-    "pitch -0.1",       # Pitch up (look up)
+    "turn 0.01",         # Turn right (adjust sensitivity as needed)
+    "turn -0.01",        # Turn left
+    "pitch 0.05",        # Pitch down (look down)
+    "pitch -0.05",       # Pitch up (look up)
 
-    "attack 1",         # Start attacking (will be generic punch without bow)
-    "move 0"            # No operation / Stop current movement (explicit idle)
+    #"attack 1",         # Start attacking (will be generic punch without bow)
+    "move 0",            # No operation / Stop current movement (explicit idle)
+    
+    "EXECUTE_FULL_SHOT"
 ]
 
 
@@ -46,16 +48,17 @@ GHAST_START_HEALTH = 10.0
 # -----------------------------------------------------------------------------
 # Reward Values
 # -----------------------------------------------------------------------------
-REWARD_HIT_GHAST_CUSTOM_BONUS = 10 # If you add rewards for damaging later
-REWARD_KILL_GHAST = 250
-REWARD_SHOOT_ARROW = 0             # No arrows for now, so 0. Was 2.
-REWARD_MISSION_SUCCESS = 150
+REWARD_HIT_GHAST_CUSTOM_BONUS = 50000 # If you add rewards for damaging later
+REWARD_KILL_GHAST = 1
+REWARD_SHOOT_ARROW = 5             # No arrows for now, so 0. Was 2.
+REWARD_MISSION_SUCCESS = 15
 REWARD_GOT_HIT = -100
-REWARD_AGENT_DEATH = -300
-REWARD_TIME_PENALTY_STEP = 0.2
+REWARD_AGENT_DEATH = -30
+REWARD_TIME_PENALTY_STEP = 2
 REWARD_STAY_STILL_PENALTY = -1
 REWARD_FIREBALL_NEAR_PENALTY = -5
-REWARD_WASTED_SHOT = 0             
+REWARD_WASTED_SHOT = 0
+REWARD_LOOKING_AT_GHAST = 20
 
 # -----------------------------------------------------------------------------
 # Mission Parameters
@@ -74,4 +77,12 @@ DEBUG_MISSION_LOAD = False
 # -----------------------------------------------------------------------------
 Q_TABLE_SAVE_FILENAME_BASE = "q_table_ghast_battle_no_inv"
 Q_TABLE_FINAL_SAVE_FILENAME = "q_table_ghast_battle_no_inv_final.json"
-Q_TABLE_LOAD_FILENAME = None # Set to a filename if you want to load a pre-trained table
+Q_TABLE_LOAD_FILENAME = "dqn_weights_ep70.h5" # Set to a filename if you want to load a pre-trained table
+
+# -----------------------------------------------------------------------------
+# Deep Q Learning Parameters
+# -----------------------------------------------------------------------------
+BATCH_SIZE             = 32          # minibatch size for replay
+MEMORY_SIZE            = 50000       # max replay buffer length
+TARGET_UPDATE_FREQ     = 1000        # how many agent.train steps between target‐net sync
+DQN_LEARNING_RATE      = 1e-3        # override of tabular LEARNING_RATE (if you like)
