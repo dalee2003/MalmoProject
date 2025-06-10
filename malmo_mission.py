@@ -182,9 +182,15 @@ dqn_agent = DQNAgent(state_size=state_size,
                      epsilon_decay_steps=constants.EPSILON_DECAY_STEPS,
                      debug=constants.DEBUG_AGENT)
 
+if constants.Q_TABLE_LOAD_FILENAME: # Check if a load filename is specified in constants.py
+    print("Loading DQN weights from: {}".format(constants.Q_TABLE_LOAD_FILENAME))
+else:
+    print("No DQN weights specified to load. Starting with new weights.")
+
 # 3. Loop over episodes
+ep_start = 91
 num_missions = 10
-for episode in range(71, 81):
+for episode in range(ep_start, ep_start + num_missions):
     print("\n--- Episode %d ---" % episode)
     mission = MalmoPython.MissionSpec(missionXML, True)
     record = MalmoPython.MissionRecordSpec()
