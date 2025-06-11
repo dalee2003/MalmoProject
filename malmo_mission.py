@@ -7,7 +7,8 @@ from keras.optimizers import Adam
 import time
 import json
 import math
-import matplotlib.pyplot as plt
+import csv
+import os
 import malmo.MalmoPython as Malmo
 
 # Your mission XML (unchanged)
@@ -191,6 +192,7 @@ def is_done(obs):
     if "entities" in obs:
         for ent in obs["entities"]:
             if ent["name"] == "Ghast" and ent.get("life", 10) <= 0:
+                print("Ghast was killed")
                 return True
     return False
 
@@ -285,10 +287,9 @@ if __name__ == "__main__":
     state_size = 8
     action_size = len(ACTIONS)
     agent = DQNAgent(state_size, action_size)
-    episodes = 100
+    episodes = 2
     batch_size = 32
     episode_rewards = []
-
     agent_host = Malmo.AgentHost()
     for e in range(episodes):
         mission = Malmo.MissionSpec(missionXML, True)
@@ -342,18 +343,47 @@ if __name__ == "__main__":
             obs = next_obs
             total_reward += reward
             if done:
+                agent_host.sendCommand("quit")
+                print("Ghast killed or agent died. Ending mission prematurely.")
+                time.sleep(0.5)
                 break
             agent.replay(batch_size)
+            
         world_state = agent_host.getWorldState()
         while world_state.is_mission_running:
             time.sleep(0.1)
             world_state = agent_host.getWorldState()
+
+        time.sleep(0.05)
         episode_rewards.append(total_reward)
         print("Episode: {}/{}, Score: {}, Epsilon: {:.2}".format(e+1, episodes, total_reward, agent.epsilon))
         time.sleep(1)
-    plt.plot(episode_rewards)
-    plt.xlabel('Episode')
-    plt.ylabel('Total Reward')
-    plt.title('DQN Agent Performance')
-    plt.show()
+    print(episode_rewards)
+    # After all episodes are done, write the rewards to the CSV file
+    csv_file_path = 'rewards_vs_episode.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Total Reward'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row:
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for i, reward in enumerate(episode_rewards):
+            csv_writer.writerow([starting_episode_number + i + 1, reward])
+    print("Training complete. Rewards saved to rewards_vs_episode.csv")
 
