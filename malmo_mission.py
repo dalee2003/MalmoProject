@@ -165,9 +165,10 @@ def get_state(obs):
 
 def get_reward(obs, prev_obs):
     reward = -1
+    did_hit_ghast = False # New flag to track ghast hits
     if prev_obs is not None:
         if obs.get("Life", 20) < prev_obs.get("Life", 20):
-            reward -= 10  # hit by fireball
+            reward -= 10
         prev_ghast_health = 10
         ghast_health = 10
         if "entities" in prev_obs:
@@ -178,11 +179,16 @@ def get_reward(obs, prev_obs):
             for ent in obs["entities"]:
                 if ent["name"] == "Ghast":
                     ghast_health = ent.get("life", 10)
+        
         if ghast_health < prev_ghast_health:
-            reward += 20  # hit ghast
+            reward += 20
+            did_hit_ghast = True # Set flag if ghast took damage
+        
         if ghast_health <= 0 and prev_ghast_health > 0:
-            reward += 100  # killed ghast
-    return reward
+            reward += 100
+            did_hit_ghast = True # Killing also counts as a hit
+
+    return reward, did_hit_ghast # Return both reward and hit status
 
 def is_done(obs):
     if obs is None:
@@ -310,6 +316,35 @@ def save_rewards_to_csv(episode_rewards):
         for i, reward in enumerate(episode_rewards):
             csv_writer.writerow([starting_episode_number + i + 1, reward])
 
+def save_shot_stats_to_csv(shot_stats_data):
+    csv_file_path = 'shots_stats.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Shots Hit Ghast', 'Total Shots'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row and row[0].isdigit(): # Ensure row exists and first element is a digit
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for stat in shot_stats_data:
+            # The 'stat['episode']' here is 1-indexed for the current run,
+            # so we add starting_episode_number to it.
+            csv_writer.writerow([starting_episode_number + stat['episode'], stat['shots_hit'], stat['total_shots']])
+
 if __name__ == "__main__":
     state_size = 8
     action_size = len(ACTIONS)
@@ -317,14 +352,23 @@ if __name__ == "__main__":
     episodes = 2
     batch_size = 32
     episode_rewards = []
+    episode_shot_stats = [] # List to store shot statistics for each episode
+
     agent_host = Malmo.AgentHost()
+
+    # Client Pool Setup
+    my_client_pool = Malmo.ClientPool()
+    my_client_pool.add(Malmo.ClientInfo("127.0.0.1", 10000)) # Ensure client listens on this port
+    experimentID = "GhastDodgeAndKillExperiment"
+
     for e in range(episodes):
         mission = Malmo.MissionSpec(missionXML, True)
         mission_record = Malmo.MissionRecordSpec()
         max_retries = 3
         for retry in range(max_retries):
             try:
-                agent_host.startMission(mission, mission_record)
+                # Use the client pool in startMission
+                agent_host.startMission(mission, my_client_pool, mission_record, 0, experimentID)
                 break
             except RuntimeError as err:
                 if retry == max_retries - 1:
@@ -339,54 +383,77 @@ if __name__ == "__main__":
         state = get_state(obs)
         prev_obs = None
         total_reward = 0
+        
+        # Initialize shot counters for the current episode
+        shots_taken_this_episode = 0
+        shots_hit_ghast_this_episode = 0
+
         for t in range(1000):
-            # Find Ghast
             ghast = None
             if obs and "entities" in obs:
                 for ent in obs["entities"]:
                     if ent["name"] == "Ghast":
                         ghast = ent
                         break
-            # Aim at Ghast if present
+            
             aimed = True
             if ghast:
                 aimed = aim_at_ghast(agent_host, obs, ghast)
-            # Only shoot if aimed
-            if aimed:
-                action_idx = agent.act(state)
-                action = ACTIONS[action_idx]
-                send_action(agent_host, action)
-            else:
-                send_action(agent_host, {})  # Do nothing while aiming
+            
+            action_idx = agent.act(state)
+            action = ACTIONS[action_idx]
+
+            # Increment shots taken if the 'use' action (shooting bow) is chosen
+            if "use" in action and action["use"] == 1:
+                shots_taken_this_episode += 1
+            
+            send_action(agent_host, action)
+            
             next_obs = get_observation(agent_host)
             if next_obs is None:
                 print("Mission ended (timeout or quit).")
                 break
+            
             next_state = get_state(next_obs)
-            reward = get_reward(next_obs, obs)
+            
+            # Get reward and check if ghast was hit
+            reward, did_hit_ghast = get_reward(next_obs, obs)
+            if did_hit_ghast:
+                shots_hit_ghast_this_episode += 1
+
             done = is_done(next_obs)
             agent.remember(state, action_idx, reward, next_state, done)
             state = next_state
             obs = next_obs
             total_reward += reward
+
             if done:
                 agent_host.sendCommand("quit")
-                print("Ghast killed or agent died. Ending mission prematurely.")
-                time.sleep(0.5)
-                break
+                print("Done condition met (ghast killed or agent died) for episode.")
+                break 
+            
             agent.replay(batch_size)
             
         world_state = agent_host.getWorldState()
         while world_state.is_mission_running:
             time.sleep(0.1)
             world_state = agent_host.getWorldState()
-
-        time.sleep(0.05)
+        print("Malmo mission confirmed terminated.")
+        
         episode_rewards.append(total_reward)
-        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}".format(e+1, episodes, total_reward, agent.epsilon))
+        episode_shot_stats.append({
+            'episode': e + 1,
+            'shots_hit': shots_hit_ghast_this_episode,
+            'total_shots': shots_taken_this_episode
+        })
+        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode))
         time.sleep(1)
-    print(episode_rewards)
-    # After all episodes are done, write the rewards to the CSV file
+
+    print(episode_rewards) # Print total rewards list
     save_rewards_to_csv(episode_rewards)
     print("Training complete. Rewards saved to rewards_vs_episode.csv")
+    
+    # Save shot statistics to a new CSV file
+    save_shot_stats_to_csv(episode_shot_stats)
+    print("Shot statistics saved to shots_stats.csv")
 
