@@ -351,7 +351,34 @@ def save_hearts_to_csv(hearts_data):
         for data in hearts_data:
             csv_writer.writerow([starting_episode_number + data['episode'], data['hearts_left']])
 
+def save_time_data_to_csv(time_data):
+    csv_file_path = 'time_survived.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
 
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Time Survived (seconds)'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row and row[0].isdigit():
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for data in time_data:
+            csv_writer.writerow([starting_episode_number + data['episode'], data['time_survived']])
+
+            
 if __name__ == "__main__":
     state_size = 8
     action_size = len(ACTIONS)
@@ -383,6 +410,7 @@ if __name__ == "__main__":
     episode_rewards = []
     episode_shot_stats = [] # List to store shot statistics for each episode
     episode_hearts_left_data = []
+    episode_time_survived_data = []
 
     agent_host = Malmo.AgentHost()
 
@@ -417,6 +445,8 @@ if __name__ == "__main__":
         # Initialize shot counters for the current episode
         shots_taken_this_episode = 0
         shots_hit_ghast_this_episode = 0
+        
+        episode_start_time = time.time()
 
         for t in range(1000):
             ghast = None
@@ -442,6 +472,8 @@ if __name__ == "__main__":
             next_obs = get_observation(agent_host)
             if next_obs is None:
                 print("Mission ended (timeout or quit).")
+                episode_time_survived = time.time() - episode_start_time
+                episode_hearts_left = 0 # Set hearts to 0 if mission ends due to timeout/quit
                 break
             
             next_state = get_state(next_obs)
@@ -460,6 +492,7 @@ if __name__ == "__main__":
             if done:
                 # Store agent's health when the 'done' condition is met
                 episode_hearts_left = obs.get("Life", 0)
+                episode_time_survived = time.time() - episode_start_time
                 agent_host.sendCommand("quit")
                 print("Done condition met (ghast killed or agent died) for episode.")
                 break 
@@ -484,8 +517,13 @@ if __name__ == "__main__":
             'episode': e + 1,
             'hearts_left': episode_hearts_left
         })
+        episode_time_survived_data.append({
+            'episode': e + 1,
+            'time_survived': episode_time_survived
+        })
         
-        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}, Hearts Left: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode, episode_hearts_left))
+        
+        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}, Hearts Left: {}, Time Survived: {:.2f}s".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode, episode_hearts_left, episode_time_survived))
         
         
         # --- Save Agent Weights ---
@@ -510,4 +548,7 @@ if __name__ == "__main__":
     
     save_hearts_to_csv(episode_hearts_left_data) 
     print("Hearts left data saved to hearts_left.csv")
+    
+    save_time_data_to_csv(episode_time_survived_data)
+    print("Time survived data saved to time_survived.csv")
 
