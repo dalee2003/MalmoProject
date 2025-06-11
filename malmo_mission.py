@@ -378,6 +378,34 @@ def save_time_data_to_csv(time_data):
         for data in time_data:
             csv_writer.writerow([starting_episode_number + data['episode'], data['time_survived']])
 
+
+def save_ghast_killed_to_csv(ghast_killed_data):
+    csv_file_path = 'ghast_killed.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Ghast Killed'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row and row[0].isdigit():
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for data in ghast_killed_data:
+            csv_writer.writerow([starting_episode_number + data['episode'], data['ghast_killed']])
+      
             
 if __name__ == "__main__":
     state_size = 8
@@ -385,7 +413,7 @@ if __name__ == "__main__":
     
     
      # --- Weights Loading and Agent Initialization ---
-    w = True
+    w = False
     
     agent = DQNAgent(state_size, action_size)
     
@@ -404,13 +432,14 @@ if __name__ == "__main__":
     # --- End Weights Loading and Agent Initialization ---
     
     
-    episodes = 5
-    save_weights_every_n_episodes = 5 # Save frequency
+    episodes = 2
+    save_weights_every_n_episodes = 10 # Save frequency
     batch_size = 32
     episode_rewards = []
     episode_shot_stats = [] # List to store shot statistics for each episode
     episode_hearts_left_data = []
     episode_time_survived_data = []
+    episode_ghast_killed_data = []
 
     agent_host = Malmo.AgentHost()
 
@@ -447,6 +476,7 @@ if __name__ == "__main__":
         shots_hit_ghast_this_episode = 0
         
         episode_start_time = time.time()
+        episode_ghast_killed = False
 
         for t in range(1000):
             ghast = None
@@ -493,8 +523,16 @@ if __name__ == "__main__":
                 # Store agent's health when the 'done' condition is met
                 episode_hearts_left = obs.get("Life", 0)
                 episode_time_survived = time.time() - episode_start_time
+                
+                if "entities" in obs:
+                    for ent in obs["entities"]:
+                        if ent["name"] == "Ghast" and ent.get("life", 10) <= 0:
+                            episode_ghast_killed = True
+                            break
+                
                 agent_host.sendCommand("quit")
                 print("Done condition met (ghast killed or agent died) for episode.")
+                
                 break 
             
             agent.replay(batch_size)
@@ -522,6 +560,10 @@ if __name__ == "__main__":
             'time_survived': episode_time_survived
         })
         
+        episode_ghast_killed_data.append({
+            'episode': e + 1,
+            'ghast_killed': episode_ghast_killed
+        })
         
         print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}, Hearts Left: {}, Time Survived: {:.2f}s".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode, episode_hearts_left, episode_time_survived))
         
@@ -540,7 +582,7 @@ if __name__ == "__main__":
 
     print(episode_rewards) # Print total rewards list
     save_rewards_to_csv(episode_rewards)
-    print("Training complete. Rewards saved to rewards_vs_episode.csv")
+    print("Rewards saved to rewards_vs_episode.csv")
     
     # Save shot statistics to a new CSV file
     save_shot_stats_to_csv(episode_shot_stats)
@@ -551,4 +593,7 @@ if __name__ == "__main__":
     
     save_time_data_to_csv(episode_time_survived_data)
     print("Time survived data saved to time_survived.csv")
+    
+    save_ghast_killed_to_csv(episode_ghast_killed_data)
+    print("Ghast killed data saved to ghast_killed.csv")
 
