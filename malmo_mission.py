@@ -432,11 +432,11 @@ if __name__ == "__main__":
     # --- End Weights Loading and Agent Initialization ---
     
     
-    episodes = 2
+    episodes = 100
     save_weights_every_n_episodes = 10 # Save frequency
     batch_size = 32
     episode_rewards = []
-    episode_shot_stats = [] # List to store shot statistics for each episode
+    episode_shot_stats = [] 
     episode_hearts_left_data = []
     episode_time_survived_data = []
     episode_ghast_killed_data = []
@@ -574,6 +574,31 @@ if __name__ == "__main__":
             try:
                 agent.model.save_weights(weights_filename)
                 print("Saved agent weights to {}".format(weights_filename))
+                
+                print(episode_rewards) # Print total rewards list
+                save_rewards_to_csv(episode_rewards)
+                print("Rewards saved to rewards_vs_episode.csv")
+
+                # Save shot statistics to a new CSV file
+                save_shot_stats_to_csv(episode_shot_stats)
+                print("Shot statistics saved to shots_stats.csv")
+
+                save_hearts_to_csv(episode_hearts_left_data) 
+                print("Hearts left data saved to hearts_left.csv")
+
+                save_time_data_to_csv(episode_time_survived_data)
+                print("Time survived data saved to time_survived.csv")
+
+                save_ghast_killed_to_csv(episode_ghast_killed_data)
+                print("Ghast killed data saved to ghast_killed.csv")
+                
+                episode_rewards = []
+                episode_shot_stats = [] 
+                episode_hearts_left_data = []
+                episode_time_survived_data = []
+                episode_ghast_killed_data = []
+                
+                
             except Exception as e:
                 print("Error saving weights to {}: {}".format(weights_filename, e))
         # --- End Save Agent Weights ---
