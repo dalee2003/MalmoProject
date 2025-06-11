@@ -283,6 +283,33 @@ def aim_at_ghast(agent_host, agent_obs, ghast_obs, yaw_step=2.0, pitch_step=2.0)
     # Return True if aimed close enough
     return abs(yaw_diff) <= yaw_step and abs(pitch_diff) <= pitch_step
 
+def save_rewards_to_csv(episode_rewards):
+    csv_file_path = 'rewards_vs_episode.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+    
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Total Reward'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row:
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for i, reward in enumerate(episode_rewards):
+            csv_writer.writerow([starting_episode_number + i + 1, reward])
+
 if __name__ == "__main__":
     state_size = 8
     action_size = len(ACTIONS)
@@ -360,30 +387,6 @@ if __name__ == "__main__":
         time.sleep(1)
     print(episode_rewards)
     # After all episodes are done, write the rewards to the CSV file
-    csv_file_path = 'rewards_vs_episode.csv'
-    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
-
-    with open(csv_file_path, 'a', newline='') as csvfile:
-        csv_writer = csv.writer(csvfile)
-        
-        if not file_exists_and_not_empty:
-            csv_writer.writerow(['Episode', 'Total Reward'])
-        
-        starting_episode_number = 0
-        if file_exists_and_not_empty:
-            with open(csv_file_path, 'r', newline='') as read_csvfile:
-                csv_reader = csv.reader(read_csvfile)
-                try:
-                    next(csv_reader)
-                    for row in csv_reader:
-                        if row:
-                            starting_episode_number = int(row[0])
-                except StopIteration:
-                    pass
-                except IndexError:
-                    pass
-
-        for i, reward in enumerate(episode_rewards):
-            csv_writer.writerow([starting_episode_number + i + 1, reward])
+    save_rewards_to_csv(episode_rewards)
     print("Training complete. Rewards saved to rewards_vs_episode.csv")
 
