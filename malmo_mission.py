@@ -233,32 +233,6 @@ def send_action(agent_host, action):
         time.sleep(0.8)
         agent_host.sendCommand("use 0")
 
-# def aim_at_ghast(agent_host, agent_obs, ghast_obs, yaw_step=2.0, pitch_step=2.0):
-#     # Calculate the yaw and pitch needed to aim at the Ghast
-#     x_a, y_a, z_a = agent_obs.get("XPos", 0), agent_obs.get("YPos", 0), agent_obs.get("ZPos", 0)
-#     x_g, y_g, z_g = ghast_obs["x"], ghast_obs["y"], ghast_obs["z"]
-#     current_yaw = agent_obs.get("Yaw", 0)
-#     current_pitch = agent_obs.get("Pitch", 0)
-#     dx = x_g - x_a
-#     dy = y_g - y_a
-#     dz = z_g - z_a
-#     desired_yaw = -math.degrees(math.atan2(dx, dz))
-#     desired_pitch = -math.degrees(math.atan2(dy, math.sqrt(dx**2 + dz**2)))
-#     # Compute difference
-#     yaw_diff = (desired_yaw - current_yaw + 180) % 360 - 180
-#     pitch_diff = desired_pitch - current_pitch
-#     # Send turn and pitch commands if needed
-#     if abs(yaw_diff) > yaw_step:
-#         agent_host.sendCommand("turn {}".format(1 if yaw_diff > 0 else -1))
-#     else:
-#         agent_host.sendCommand("turn 0")
-#     if abs(pitch_diff) > pitch_step:
-#         agent_host.sendCommand("pitch {}".format(0.05 if pitch_diff > 0 else -0.05))
-#     else:
-#         agent_host.sendCommand("pitch 0")
-#     # If already aimed, return True
-#     return abs(yaw_diff) <= yaw_step and abs(pitch_diff) <= pitch_step
-
 def aim_at_ghast(agent_host, agent_obs, ghast_obs, yaw_step=2.0, pitch_step=2.0):
     import math
     x_a, y_a, z_a = agent_obs.get("XPos", 0), agent_obs.get("YPos", 0), agent_obs.get("ZPos", 0)
@@ -348,8 +322,30 @@ def save_shot_stats_to_csv(shot_stats_data):
 if __name__ == "__main__":
     state_size = 8
     action_size = len(ACTIONS)
+    
+    
+     # --- Weights Loading and Agent Initialization ---
+    w = True
+    
     agent = DQNAgent(state_size, action_size)
-    episodes = 2
+    
+    if w:
+        weights_filepath = "agent_weights_episode_10.h5"
+        try:
+            agent.model.load_weights(weights_filepath)
+            print("Successfully loaded weights from {}".format(weights_filepath))
+            # If loading weights, it's common to reduce epsilon to explore less
+            agent.epsilon = 0.1 # Example: start with reduced exploration
+        except Exception as e:
+            print("Error loading weights from {}: {}. Starting with a new agent.".format(weights_filepath, e))
+            # If loading fails, a new agent is already initialized by default
+    else:
+        print("No valid weights file provided or found. Starting with a new agent.")
+    # --- End Weights Loading and Agent Initialization ---
+    
+    
+    episodes = 10
+    save_weights_every_n_episodes = 5 # Save frequency
     batch_size = 32
     episode_rewards = []
     episode_shot_stats = [] # List to store shot statistics for each episode
@@ -447,6 +443,17 @@ if __name__ == "__main__":
             'total_shots': shots_taken_this_episode
         })
         print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode))
+        
+        # --- Save Agent Weights ---
+        if (e + 1) % save_weights_every_n_episodes == 0:
+            weights_filename = "agent_weights_episode_{}.h5".format(e+1)
+            try:
+                agent.model.save_weights(weights_filename)
+                print("Saved agent weights to {}".format(weights_filename))
+            except Exception as e:
+                print("Error saving weights to {}: {}".format(weights_filename, e))
+        # --- End Save Agent Weights ---
+        
         time.sleep(1)
 
     print(episode_rewards) # Print total rewards list
