@@ -191,16 +191,27 @@ def get_reward(obs, prev_obs):
     return reward, did_hit_ghast # Return both reward and hit status
 
 def is_done(obs):
+    overall_done_status = False
+    ghast_killed_flag = False
+    agent_died_flag = False
+
     if obs is None:
-        return True
-    if obs.get("Life", 0) <= 0:
-        return True
-    if "entities" in obs:
-        for ent in obs["entities"]:
-            if ent["name"] == "Ghast" and ent.get("life", 10) <= 0:
-                print("Ghast was killed")
-                return True
-    return False
+        overall_done_status = True
+    else:
+        if obs.get("Life", 0) <= 0:
+            overall_done_status = True
+            agent_died_flag = True
+            print("Agent died.") 
+
+        if "entities" in obs:
+            for ent in obs["entities"]:
+                if ent["name"] == "Ghast" and ent.get("life", 10) <= 0:
+                    overall_done_status = True
+                    ghast_killed_flag = True
+                    print("Ghast was killed.")
+                    break 
+
+    return overall_done_status, ghast_killed_flag, agent_died_flag
 
 def wait_for_mission_start(agent_host):
     world_state = agent_host.getWorldState()
@@ -318,6 +329,61 @@ def save_shot_stats_to_csv(shot_stats_data):
             # The 'stat['episode']' here is 1-indexed for the current run,
             # so we add starting_episode_number to it.
             csv_writer.writerow([starting_episode_number + stat['episode'], stat['shots_hit'], stat['total_shots']])
+            
+def save_ghast_killed_stats_to_csv(ghast_killed_data):
+    csv_file_path = 'ghast_killed_stats.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Ghast Killed'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row and row[0].isdigit():
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for stat in ghast_killed_data:
+            csv_writer.writerow([starting_episode_number + stat['episode'], stat['ghast_killed']])
+
+def save_agent_died_stats_to_csv(agent_died_data):
+    csv_file_path = 'agent_died_stats.csv'
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Agent Died'])
+        
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader)
+                    for row in csv_reader:
+                        if row and row[0].isdigit():
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        for stat in agent_died_data:
+            csv_writer.writerow([starting_episode_number + stat['episode'], stat['agent_died']])
+
 
 if __name__ == "__main__":
     state_size = 8
@@ -330,7 +396,7 @@ if __name__ == "__main__":
     agent = DQNAgent(state_size, action_size)
     
     if w:
-        weights_filepath = "agent_weights_episode_10.h5"
+        weights_filepath = "1agent_weights_episode_5.h5"
         try:
             agent.model.load_weights(weights_filepath)
             print("Successfully loaded weights from {}".format(weights_filepath))
@@ -344,11 +410,13 @@ if __name__ == "__main__":
     # --- End Weights Loading and Agent Initialization ---
     
     
-    episodes = 10
+    episodes = 5
     save_weights_every_n_episodes = 5 # Save frequency
     batch_size = 32
     episode_rewards = []
     episode_shot_stats = [] # List to store shot statistics for each episode
+    episode_ghast_killed_stats = []
+    episode_agent_died_stats = []
 
     agent_host = Malmo.AgentHost()
 
@@ -383,6 +451,8 @@ if __name__ == "__main__":
         # Initialize shot counters for the current episode
         shots_taken_this_episode = 0
         shots_hit_ghast_this_episode = 0
+        ghast_killed_this_episode = False
+        agent_died_this_episode = False
 
         for t in range(1000):
             ghast = None
@@ -417,13 +487,22 @@ if __name__ == "__main__":
             if did_hit_ghast:
                 shots_hit_ghast_this_episode += 1
 
-            done = is_done(next_obs)
-            agent.remember(state, action_idx, reward, next_state, done)
+            # Get mission completion status and specific death/kill flags
+            is_episode_done_loop, ghast_killed_status_current_step, agent_died_status_current_step = is_done(next_obs)
+            
+            # Update episode-level flags
+            if ghast_killed_status_current_step:
+                ghast_killed_this_episode = True
+            if agent_died_status_current_step:
+                agent_died_this_episode = True
+                
+            agent.remember(state, action_idx, reward, next_state, is_episode_done_loop)
+            
             state = next_state
             obs = next_obs
             total_reward += reward
 
-            if done:
+            if is_episode_done_loop:
                 agent_host.sendCommand("quit")
                 print("Done condition met (ghast killed or agent died) for episode.")
                 break 
@@ -442,7 +521,17 @@ if __name__ == "__main__":
             'shots_hit': shots_hit_ghast_this_episode,
             'total_shots': shots_taken_this_episode
         })
+        episode_ghast_killed_stats.append({
+            'episode': e + 1,
+            'ghast_killed': ghast_killed_this_episode
+        })
+        episode_agent_died_stats.append({
+            'episode': e + 1,
+            'agent_died': agent_died_this_episode
+        })
+        
         print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode))
+
         
         # --- Save Agent Weights ---
         if (e + 1) % save_weights_every_n_episodes == 0:
@@ -463,4 +552,10 @@ if __name__ == "__main__":
     # Save shot statistics to a new CSV file
     save_shot_stats_to_csv(episode_shot_stats)
     print("Shot statistics saved to shots_stats.csv")
+    
+    save_ghast_killed_stats_to_csv(episode_ghast_killed_stats)
+    print("Ghast killed status saved to ghast_killed_stats.csv")
+
+    save_agent_died_stats_to_csv(episode_agent_died_stats)
+    print("Agent died status saved to agent_died_stats.csv")
 
