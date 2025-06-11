@@ -318,6 +318,39 @@ def save_shot_stats_to_csv(shot_stats_data):
             # The 'stat['episode']' here is 1-indexed for the current run,
             # so we add starting_episode_number to it.
             csv_writer.writerow([starting_episode_number + stat['episode'], stat['shots_hit'], stat['total_shots']])
+            
+            
+def save_hearts_to_csv(hearts_data):
+    csv_file_path = 'hearts_left.csv'
+    # Check if file exists and is not empty to determine if header is needed
+    file_exists_and_not_empty = os.path.exists(csv_file_path) and os.path.getsize(csv_file_path) > 0
+
+    with open(csv_file_path, 'a', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        
+        # Write header only if file is new or empty
+        if not file_exists_and_not_empty:
+            csv_writer.writerow(['Episode', 'Hearts Left'])
+        
+        # Determine starting episode number for appending
+        starting_episode_number = 0
+        if file_exists_and_not_empty:
+            with open(csv_file_path, 'r', newline='') as read_csvfile:
+                csv_reader = csv.reader(read_csvfile)
+                try:
+                    next(csv_reader) # Skip header
+                    for row in csv_reader:
+                        if row and row[0].isdigit():
+                            starting_episode_number = int(row[0])
+                except StopIteration:
+                    pass
+                except IndexError:
+                    pass
+
+        # Write each episode's heart data
+        for data in hearts_data:
+            csv_writer.writerow([starting_episode_number + data['episode'], data['hearts_left']])
+
 
 if __name__ == "__main__":
     state_size = 8
@@ -330,7 +363,7 @@ if __name__ == "__main__":
     agent = DQNAgent(state_size, action_size)
     
     if w:
-        weights_filepath = "agent_weights_episode_10.h5"
+        weights_filepath = "agent_weights_episode_5.h5"
         try:
             agent.model.load_weights(weights_filepath)
             print("Successfully loaded weights from {}".format(weights_filepath))
@@ -344,11 +377,12 @@ if __name__ == "__main__":
     # --- End Weights Loading and Agent Initialization ---
     
     
-    episodes = 10
+    episodes = 5
     save_weights_every_n_episodes = 5 # Save frequency
     batch_size = 32
     episode_rewards = []
     episode_shot_stats = [] # List to store shot statistics for each episode
+    episode_hearts_left_data = []
 
     agent_host = Malmo.AgentHost()
 
@@ -424,6 +458,8 @@ if __name__ == "__main__":
             total_reward += reward
 
             if done:
+                # Store agent's health when the 'done' condition is met
+                episode_hearts_left = obs.get("Life", 0)
                 agent_host.sendCommand("quit")
                 print("Done condition met (ghast killed or agent died) for episode.")
                 break 
@@ -442,7 +478,15 @@ if __name__ == "__main__":
             'shots_hit': shots_hit_ghast_this_episode,
             'total_shots': shots_taken_this_episode
         })
-        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode))
+        
+        # Append hearts left for the current episode
+        episode_hearts_left_data.append({ 
+            'episode': e + 1,
+            'hearts_left': episode_hearts_left
+        })
+        
+        print("Episode: {}/{}, Score: {}, Epsilon: {:.2}, Shots Hit: {}, Total Shots: {}, Hearts Left: {}".format(e+1, episodes, total_reward, agent.epsilon, shots_hit_ghast_this_episode, shots_taken_this_episode, episode_hearts_left))
+        
         
         # --- Save Agent Weights ---
         if (e + 1) % save_weights_every_n_episodes == 0:
@@ -463,4 +507,7 @@ if __name__ == "__main__":
     # Save shot statistics to a new CSV file
     save_shot_stats_to_csv(episode_shot_stats)
     print("Shot statistics saved to shots_stats.csv")
+    
+    save_hearts_to_csv(episode_hearts_left_data) 
+    print("Hearts left data saved to hearts_left.csv")
 
